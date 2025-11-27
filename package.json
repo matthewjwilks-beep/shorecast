@@ -1,0 +1,12 @@
+{
+  "name": "shorecast",
+  "version": "1.0.0",
+  "description": "Voice-first conditions for wild swimmers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
