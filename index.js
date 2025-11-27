@@ -87,16 +87,51 @@ function formatDate(dateString) {
   });
 }
 
+function getSunTimes(lat, lng, date) {
+  // Calculate sunrise and sunset times
+  const rad = Math.PI / 180;
+  const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  
+  // Solar declination
+  const declination = -23.45 * Math.cos(rad * (360 / 365) * (dayOfYear + 10));
+  
+  // Hour angle
+  const hourAngle = Math.acos(
+    -Math.tan(lat * rad) * Math.tan(declination * rad)
+  ) / rad;
+  
+  // Sunrise and sunset in hours (UTC)
+  const noon = 12 - lng / 15;
+  const sunriseUTC = noon - hourAngle / 15;
+  const sunsetUTC = noon + hourAngle / 15;
+  
+  // Adjust for UK time (GMT/BST)
+  const isBST = date.getMonth() > 2 && date.getMonth() < 10;
+  const offset = isBST ? 1 : 0;
+  
+  const formatHour = (h) => {
+    h = h + offset;
+    const hours = Math.floor(h);
+    const mins = Math.round((h - hours) * 60);
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+  
+  return {
+    sunrise: formatHour(sunriseUTC),
+    sunset: formatHour(sunsetUTC)
+  };
+}
+
 const server = http.createServer(async (req, res) => {
   
   // List all stations
   if (req.url === '/stations') {
     try {
       const stations = await fetchStations();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(stations, null, 2));
     } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Error fetching stations: ' + error.message);
     }
     return;
@@ -105,13 +140,16 @@ const server = http.createServer(async (req, res) => {
   // Main conditions page
   if (req.url === '/' || req.url === '/conditions') {
     try {
-      // Barry Island station ID - we'll find the correct one
-      const stationId = '0113';  // Bristol Channel - Barry
+      // Barry Island station ID
+      const stationId = '0113';
       
       const [marine, tides] = await Promise.all([
         fetchMarineData(),
         fetchTideData(stationId)
       ]);
+      
+      // Get sun times
+      const sun = getSunTimes(latitude, longitude, new Date());
       
       // Get next few tidal events
       const now = new Date();
@@ -131,6 +169,10 @@ const server = http.createServer(async (req, res) => {
       const output = `
 === SHORECAST: Barry Island ===
 
+SUN
+  Sunrise: ${sun.sunrise}
+  Sunset: ${sun.sunset}
+
 TIDES
 ${tideText}
 MARINE CONDITIONS
@@ -142,14 +184,14 @@ MARINE CONDITIONS
 Shorecast is alive!
       `;
       
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(output);
     } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Error fetching data: ' + error.message);
     }
   } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not found');
   }
 });
