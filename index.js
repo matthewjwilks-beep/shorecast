@@ -301,6 +301,157 @@ app.get('/stations', async (req, res) => {
   }
 });
 
+// Alexa endpoint
+app.post('/alexa', express.json(), async (req, res) => {
+  const requestType = req.body.request.type;
+  
+  // Handle launch request
+  if (requestType === 'LaunchRequest') {
+    return res.json({
+      version: '1.0',
+      response: {
+        outputSpeech: {
+          type: 'PlainText',
+          text: 'Welcome to Shorecast. Ask me about conditions at a beach, like Porthcawl or Barry Island.'
+        },
+        shouldEndSession: false
+      }
+    });
+  }
+  
+  // Handle intents
+  if (requestType === 'IntentRequest') {
+    const intentName = req.body.request.intent.name;
+    
+    // Get conditions intent
+    if (intentName === 'GetConditionsIntent') {
+      const locationSlot = req.body.request.intent.slots?.location?.value;
+      
+      if (!locationSlot) {
+        return res.json({
+          version: '1.0',
+          response: {
+            outputSpeech: {
+              type: 'PlainText',
+              text: 'Which beach would you like conditions for? Try saying Porthcawl or Barry Island.'
+            },
+            shouldEndSession: false
+          }
+        });
+      }
+      
+      // Convert spoken location to slug
+      const slug = locationSlot.toLowerCase()
+        .replace(' island', '')
+        .replace(' cove', '')
+        .replace(' bay', '')
+        .replace('lyme regis', 'lymeregis')
+        .replace(' ', '');
+      
+      const conditions = await getConditions(slug);
+      
+      if (!conditions) {
+        return res.json({
+          version: '1.0',
+          response: {
+            outputSpeech: {
+              type: 'PlainText',
+              text: `Sorry, I don't have data for ${locationSlot}. Try Barry, Porthcawl, or Mumbles.`
+            },
+            shouldEndSession: false
+          }
+        });
+      }
+      
+      // Build the spoken response
+      let speech = `Here are conditions at ${conditions.location}. `;
+      speech += `Sunrise is at ${conditions.sunrise}. `;
+      
+      if (conditions.nextHighTide) {
+        speech += `High tide is at ${conditions.nextHighTide.time}`;
+        if (conditions.nextHighTide.height) {
+          speech += ` reaching ${conditions.nextHighTide.height}`;
+        }
+        speech += '. ';
+      }
+      
+      if (conditions.seaTemp) {
+        speech += `Sea temperature is ${conditions.seaTemp}. `;
+      }
+      
+      if (conditions.waveHeight) {
+        speech += `Wave height is ${conditions.waveHeight}. `;
+      }
+      
+      return res.json({
+        version: '1.0',
+        response: {
+          outputSpeech: {
+            type: 'PlainText',
+            text: speech
+          },
+          shouldEndSession: true
+        }
+      });
+    }
+    
+    // List locations intent
+    if (intentName === 'ListLocationsIntent') {
+      const names = Object.values(locations).map(l => l.name).join(', ');
+      return res.json({
+        version: '1.0',
+        response: {
+          outputSpeech: {
+            type: 'PlainText',
+            text: `I have conditions for: ${names}.`
+          },
+          shouldEndSession: false
+        }
+      });
+    }
+    
+    // Help intent
+    if (intentName === 'AMAZON.HelpIntent') {
+      return res.json({
+        version: '1.0',
+        response: {
+          outputSpeech: {
+            type: 'PlainText',
+            text: 'Ask me for conditions at a beach. For example, say: conditions at Porthcawl. Or ask what locations I cover.'
+          },
+          shouldEndSession: false
+        }
+      });
+    }
+    
+    // Stop/Cancel intent
+    if (intentName === 'AMAZON.StopIntent' || intentName === 'AMAZON.CancelIntent') {
+      return res.json({
+        version: '1.0',
+        response: {
+          outputSpeech: {
+            type: 'PlainText',
+            text: 'Happy swimming!'
+          },
+          shouldEndSession: true
+        }
+      });
+    }
+  }
+  
+  // Fallback
+  res.json({
+    version: '1.0',
+    response: {
+      outputSpeech: {
+        type: 'PlainText',
+        text: 'Sorry, I didn\'t understand that. Ask me about conditions at a beach.'
+      },
+      shouldEndSession: false
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Shorecast running on port ${PORT}`);
 });
