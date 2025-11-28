@@ -69,7 +69,142 @@ const locations = {
   brighton: { name: "Brighton", stationId: "0082", lat: 50.82, lon: -0.10 }
 };
 
-// Calculate sunrise and sunset times
+// =============================================================================
+// SEWAGE ALERTS - Welsh Water API
+// =============================================================================
+
+const WELSH_WATER_ENDPOINT = 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query';
+
+// Map Shorecast beach names to Welsh Water Linked_Bathing_Water values
+const BEACH_TO_WELSH_WATER = {
+  "Rhossili": "Rhossili",
+  "Langland Bay": "Langland Bay",
+  "Caswell Bay": "Caswell Bay",
+  "Barafundle Bay": "Barafundle",
+  "Tenby": "Tenby North",
+  "Saundersfoot": "Saundersfoot",
+  "Aberdovey": "Aberdyfi",
+  "Barmouth": "Barmouth",
+  "Harlech": "Harlech",
+  "Abersoch": "Abersoch",
+  "Benllech": "Benllech",
+  "Trearddur Bay": "Trearddur Bay",
+  "Rhosneigr": "Rhosneigr",
+  "Llandudno": "Llandudno West Shore",
+  "Colwyn Bay": "Colwyn Bay",
+  "Pwllheli": "Glan Don Beach",
+  "Criccieth": "Criccieth",
+  "Aberporth": "Aberporth",
+  "New Quay": "New Quay",
+  "Aberystwyth": "Aberystwyth North",
+  "Porthcawl": "Sandy Bay Porthcawl",
+  "Mumbles": "Bracelet Bay",
+  "Barry Island": "Whitmore Bay Barry Island",
+  "Penarth": "Penarth Beach",
+  "Broad Haven": "Broad Haven (Central)",
+  "Poppit Sands": "Poppit Sands"
+};
+
+async function fetchSewageStatus(beachName) {
+  // Get Welsh Water name for this beach
+  const wwName = BEACH_TO_WELSH_WATER[beachName];
+  
+  if (!wwName) {
+    return { status: 'no_data', message: 'No sewage monitoring for this beach' };
+  }
+  
+  try {
+    const safeName = wwName.replace(/'/g, "''");
+    const params = new URLSearchParams({
+      where: `Linked_Bathing_Water LIKE '%${safeName}%'`,
+      outFields: 'asset_name,status,discharge_duration_last_7_daysH,Receiving_Water',
+      returnGeometry: 'false',
+      f: 'json'
+    });
+    
+    const response = await fetch(`${WELSH_WATER_ENDPOINT}?${params}`);
+    if (!response.ok) throw new Error('Welsh Water API error');
+    
+    const data = await response.json();
+    const features = data.features || [];
+    
+    if (features.length === 0) {
+      return { status: 'no_data', message: 'No monitors found' };
+    }
+    
+    // Check for active discharges
+    const active = features.filter(f => f.attributes.status === 'Overflow Operating');
+    const recent24h = features.filter(f => (f.attributes.status || '').includes('Has in the last 24 hours'));
+    const investigating = features.filter(f => f.attributes.status === 'Under Investigation');
+    
+    const total7dHours = features.reduce((sum, f) => 
+      sum + (f.attributes.discharge_duration_last_7_daysH || 0), 0);
+    
+    if (active.length > 0) {
+      return {
+        status: 'warning',
+        message: `${active.length} active sewage discharge${active.length > 1 ? 's' : ''}`,
+        hours7d: total7dHours
+      };
+    }
+    
+    if (recent24h.length > 0) {
+      return {
+        status: 'recent',
+        message: 'Discharge in last 24 hours',
+        hours7d: total7dHours
+      };
+    }
+    
+    if (investigating.length > 0) {
+      return {
+        status: 'caution',
+        message: 'Monitor under investigation',
+        hours7d: total7dHours
+      };
+    }
+    
+    if (total7dHours > 12) {
+      return {
+        status: 'recent_week',
+        message: `${Math.round(total7dHours)} hours discharge in last 7 days`,
+        hours7d: total7dHours
+      };
+    }
+    
+    return {
+      status: 'clear',
+      message: 'No recent discharge',
+      hours7d: total7dHours
+    };
+    
+  } catch (err) {
+    console.error('Sewage fetch error:', err.message);
+    return { status: 'error', message: 'Could not check sewage status' };
+  }
+}
+
+function formatSewageForAlexa(beachName, sewage) {
+  if (sewage.status === 'warning') {
+    return `Warning: There is an active sewage discharge near ${beachName}. Swimming is not recommended.`;
+  }
+  if (sewage.status === 'recent') {
+    return `Note: There was sewage discharge near ${beachName} in the last 24 hours.`;
+  }
+  if (sewage.status === 'caution') {
+    return `Note: Sewage monitors near ${beachName} are under investigation.`;
+  }
+  if (sewage.status === 'recent_week' && sewage.hours7d > 24) {
+    return `Note: There were ${Math.round(sewage.hours7d)} hours of sewage discharge near ${beachName} in the last 7 days.`;
+  }
+  // For 'clear' or 'no_data', say nothing
+  return null;
+}
+
+// =============================================================================
+// EXISTING FUNCTIONS
+// =============================================================================
+
 function getSunTimes(lat, lon, date = new Date()) {
   const rad = Math.PI / 180;
   const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
@@ -89,7 +224,6 @@ function getSunTimes(lat, lon, date = new Date()) {
   return { sunrise: formatTime(sunrise), sunset: formatTime(sunset) };
 }
 
-// Fetch tide data from Admiralty API
 async function fetchTideData(stationId) {
   const apiKey = process.env.ADMIRALTY_API_KEY;
   if (!apiKey) throw new Error('ADMIRALTY_API_KEY not set');
@@ -116,7 +250,6 @@ async function fetchTideData(stationId) {
   };
 }
 
-// Fetch marine data from Open-Meteo
 async function fetchMarineData(lat, lon) {
   const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_period,swell_wave_height,sea_surface_temperature&timezone=Europe/London`;
   const response = await fetch(url);
@@ -134,12 +267,11 @@ async function fetchMarineData(lat, lon) {
   };
 }
 
-// Get full conditions for a location
 async function getConditions(locationSlug) {
   const location = locations[locationSlug];
   if (!location) return null;
   
-  const [tideData, marineData] = await Promise.all([
+  const [tideData, marineData, sewageData] = await Promise.all([
     fetchTideData(location.stationId).catch(err => {
       console.error('Tide fetch error:', err.message);
       return { nextHighTide: null, nextLowTide: null };
@@ -147,6 +279,10 @@ async function getConditions(locationSlug) {
     fetchMarineData(location.lat, location.lon).catch(err => {
       console.error('Marine fetch error:', err.message);
       return { seaTemp: null, waveHeight: null, wavePeriod: null, swellHeight: null };
+    }),
+    fetchSewageStatus(location.name).catch(err => {
+      console.error('Sewage fetch error:', err.message);
+      return { status: 'error', message: 'Could not check' };
     })
   ]);
   
@@ -158,11 +294,15 @@ async function getConditions(locationSlug) {
     sunrise: sunTimes.sunrise,
     sunset: sunTimes.sunset,
     ...tideData,
-    ...marineData
+    ...marineData,
+    sewage: sewageData
   };
 }
 
-// Routes
+// =============================================================================
+// ROUTES
+// =============================================================================
+
 app.get('/', async (req, res) => {
   try {
     const conditions = await getConditions('barry');
@@ -216,7 +356,10 @@ app.get('/stations', async (req, res) => {
   }
 });
 
-// Alexa endpoint
+// =============================================================================
+// ALEXA ENDPOINT
+// =============================================================================
+
 app.post('/alexa', express.json(), async (req, res) => {
   const requestType = req.body.request.type;
   
@@ -246,7 +389,6 @@ app.post('/alexa', express.json(), async (req, res) => {
         });
       }
       
-      // Convert spoken location to slug
       const slug = locationSlot.toLowerCase()
         .replace(' island', '').replace(' bay', '').replace(' cove', '').replace(' sands', '')
         .replace('lyme regis', 'lymeregis').replace('rest bay', 'restbay').replace('colwyn bay', 'colwynbay')
@@ -267,15 +409,26 @@ app.post('/alexa', express.json(), async (req, res) => {
         });
       }
       
+      // Build speech response
       let speech = `Here are conditions at ${conditions.location}. `;
-      speech += `Sunrise is at ${conditions.sunrise}. `;
-      if (conditions.nextHighTide) {
-        speech += `High tide is at ${conditions.nextHighTide.time}`;
-        if (conditions.nextHighTide.height) speech += ` reaching ${conditions.nextHighTide.height}`;
-        speech += '. ';
+      
+      // SEWAGE WARNING FIRST if active
+      if (conditions.sewage && conditions.sewage.status === 'warning') {
+        speech = formatSewageForAlexa(conditions.location, conditions.sewage) + ' ';
+      } else {
+        speech += `Sunrise is at ${conditions.sunrise}. `;
+        if (conditions.nextHighTide) {
+          speech += `High tide is at ${conditions.nextHighTide.time}`;
+          if (conditions.nextHighTide.height) speech += ` reaching ${conditions.nextHighTide.height}`;
+          speech += '. ';
+        }
+        if (conditions.seaTemp) speech += `Sea temperature is ${conditions.seaTemp}. `;
+        if (conditions.waveHeight) speech += `Wave height is ${conditions.waveHeight}. `;
+        
+        // Add sewage note at end if recent activity
+        const sewageNote = formatSewageForAlexa(conditions.location, conditions.sewage);
+        if (sewageNote) speech += sewageNote;
       }
-      if (conditions.seaTemp) speech += `Sea temperature is ${conditions.seaTemp}. `;
-      if (conditions.waveHeight) speech += `Wave height is ${conditions.waveHeight}. `;
       
       return res.json({
         version: '1.0',
