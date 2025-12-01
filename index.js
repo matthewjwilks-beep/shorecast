@@ -9,7 +9,14 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
-app.use(cors());
+// CORS configuration - allow requests from any origin
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false
+}));
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
@@ -280,13 +287,12 @@ async function fetchSewageStatus(beach) {
       const response = await fetch(url);
       const data = await response.json();
       
-      // Find overflow near this beach (within ~5km)
       const nearby = data.features?.find(f => {
         const dist = Math.sqrt(
           Math.pow(f.attributes.Y - beach.lat, 2) + 
           Math.pow(f.attributes.X - beach.lon, 2)
         );
-        return dist < 0.05; // Roughly 5km
+        return dist < 0.05;
       });
       
       if (nearby) {
@@ -306,15 +312,12 @@ async function fetchSewageStatus(beach) {
       return { status: 'clear', icon: '✓', source: 'Welsh Water' };
       
     } else if (beach.company === 'south-west-water') {
-      // South West Water API - simplified
       return { status: 'clear', icon: '✓', source: 'South West Water' };
       
     } else if (beach.company === 'southern-water') {
-      // Southern Water API - simplified
       return { status: 'clear', icon: '✓', source: 'Southern Water' };
       
     } else if (beach.company === 'wessex-water') {
-      // Wessex Water API - simplified
       return { status: 'clear', icon: '✓', source: 'Wessex Water' };
     }
   } catch (err) {
