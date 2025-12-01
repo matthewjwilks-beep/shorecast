@@ -173,8 +173,12 @@ const BEACH_TO_WELSH_WATER = {
 
   // Pembrokeshire
   "Amroth": "Amroth Central",
+  "Wiseman's Bridge": "Wiseman's Bridge",
+  "Coppet Hall": "Coppet Hall",
   "Saundersfoot": "Saundersfoot",
-  "Tenby": "Tenby North",
+  "Tenby North": "Tenby North",
+  "Castle Beach Tenby": "Castle Beach Tenby",
+  "Tenby South": "Tenby South",
   "Penally": "Penally",
   "Lydstep": "Lydstep",
   "Manorbier": "Manorbier",
@@ -182,8 +186,11 @@ const BEACH_TO_WELSH_WATER = {
   "Barafundle Bay": "Barafundle",
   "Freshwater West": "Freshwater West",
   "Broad Haven": "Broad Haven (Central)",
+  "Little Haven": "Little Haven",
   "Newgale": "Newgale",
   "Marloes Sands": "Marloes Sands",
+  "Dale": "Dale",
+  "Caerfai": "Caerfai",
   "Whitesands Bay": "Whitesands",
   "Newport Sands": "Newport North",
   "Poppit Sands": "Poppit West",
@@ -239,6 +246,8 @@ const BEACH_TO_WELSH_WATER = {
   "Penmaenmawr": "Penmaenmawr",
   "Llandudno": "Llandudno West Shore",
   "Colwyn Bay": "Colwyn Bay",
+  "Porth Eirias": "Colwyn Bay Porth Eirias",
+  "Abergele": "Abergele (Pensarn)",
   "Kinmel Bay": "Kinmel Bay (Sandy Cove)",
   "Prestatyn": "Prestatyn"
 };
@@ -608,6 +617,7 @@ app.post('/alexa', express.json(), async (req, res) => {
         .replace('new quay', 'newquay')
         .replace('newport sands', 'newportsands')
         .replace('broad haven', 'broadhaven')
+        .replace('little haven', 'littlehaven')
         .replace('freshwater west', 'freshwaterwest')
         .replace('freshwater east', 'freshwatereast')
         .replace('porth dinllaen', 'porthdinllaen')
@@ -635,6 +645,12 @@ app.post('/alexa', express.json(), async (req, res) => {
         .replace('trearddur bay', 'trearddur')
         .replace('cemaes bay', 'cemaes')
         .replace('clarach south', 'clarach')
+        .replace("wiseman's bridge", 'wisemansbridge')
+        .replace('wisemans bridge', 'wisemansbridge')
+        .replace('coppet hall', 'coppethall')
+        .replace('castle beach', 'castlebeach')
+        .replace('tenby south', 'tenbysouth')
+        .replace('porth eirias', 'portheirias')
         // Remove remaining spaces
         .replace(/ /g, '');
       
