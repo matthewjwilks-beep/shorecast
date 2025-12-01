@@ -4,51 +4,120 @@ const PORT = process.env.PORT || 3000;
 
 // Locations: slug -> { name, stationId, lat, lon }
 const locations = {
-  // South Wales
+  // ===================
+  // SOUTH WALES
+  // ===================
   barry: { name: "Barry Island", stationId: "0513", lat: 51.39, lon: -3.26 },
   penarth: { name: "Penarth", stationId: "0514", lat: 51.43, lon: -3.17 },
+  coldknap: { name: "Cold Knap", stationId: "0513", lat: 51.40, lon: -3.28 },
+  colhuw: { name: "Col-Huw Beach", stationId: "0513", lat: 51.40, lon: -3.49 },
   porthcawl: { name: "Porthcawl", stationId: "0512", lat: 51.48, lon: -3.70 },
   restbay: { name: "Rest Bay", stationId: "0512", lat: 51.49, lon: -3.72 },
   ogmore: { name: "Ogmore-by-Sea", stationId: "0512", lat: 51.46, lon: -3.64 },
   southerndown: { name: "Southerndown", stationId: "0512", lat: 51.45, lon: -3.60 },
-  // Gower
+  aberafan: { name: "Aberafan", stationId: "0512", lat: 51.59, lon: -3.81 },
+  swanseabay: { name: "Swansea Bay", stationId: "0508", lat: 51.61, lon: -3.97 },
+  pembrey: { name: "Pembrey", stationId: "0508", lat: 51.69, lon: -4.31 },
+  pendine: { name: "Pendine", stationId: "0508", lat: 51.77, lon: -4.56 },
+
+  // ===================
+  // GOWER
+  // ===================
   mumbles: { name: "Mumbles", stationId: "0508", lat: 51.57, lon: -3.98 },
+  braceletbay: { name: "Bracelet Bay", stationId: "0508", lat: 51.57, lon: -3.98 },
+  limeslade: { name: "Limeslade Bay", stationId: "0508", lat: 51.57, lon: -3.99 },
   langland: { name: "Langland Bay", stationId: "0508", lat: 51.57, lon: -3.98 },
   caswell: { name: "Caswell Bay", stationId: "0508", lat: 51.57, lon: -3.97 },
+  oxwich: { name: "Oxwich Bay", stationId: "0508", lat: 51.56, lon: -4.15 },
+  porteynon: { name: "Port Eynon", stationId: "0508", lat: 51.54, lon: -4.21 },
   rhossili: { name: "Rhossili", stationId: "0508", lat: 51.57, lon: -4.29 },
-  // Pembrokeshire
-  tenby: { name: "Tenby", stationId: "0502", lat: 51.67, lon: -4.70 },
+
+  // ===================
+  // PEMBROKESHIRE
+  // ===================
+  amroth: { name: "Amroth", stationId: "0502", lat: 51.73, lon: -4.66 },
   saundersfoot: { name: "Saundersfoot", stationId: "0502", lat: 51.71, lon: -4.69 },
+  tenby: { name: "Tenby", stationId: "0502", lat: 51.67, lon: -4.70 },
+  penally: { name: "Penally", stationId: "0502", lat: 51.67, lon: -4.72 },
+  lydstep: { name: "Lydstep", stationId: "0502", lat: 51.64, lon: -4.74 },
+  manorbier: { name: "Manorbier", stationId: "0502", lat: 51.65, lon: -4.80 },
+  freshwatereast: { name: "Freshwater East", stationId: "0502", lat: 51.64, lon: -4.87 },
   barafundle: { name: "Barafundle Bay", stationId: "0501", lat: 51.62, lon: -4.90 },
   freshwaterwest: { name: "Freshwater West", stationId: "0501", lat: 51.64, lon: -5.06 },
   broadhaven: { name: "Broad Haven", stationId: "0492B", lat: 51.78, lon: -5.11 },
+  newgale: { name: "Newgale", stationId: "0492B", lat: 51.85, lon: -5.12 },
   marloes: { name: "Marloes Sands", stationId: "0495", lat: 51.73, lon: -5.21 },
   whitesands: { name: "Whitesands Bay", stationId: "0492", lat: 51.88, lon: -5.30 },
   newportsands: { name: "Newport Sands", stationId: "0490", lat: 52.02, lon: -4.88 },
   poppit: { name: "Poppit Sands", stationId: "0489", lat: 52.12, lon: -4.68 },
-  // Mid Wales Coast
+
+  // ===================
+  // CEREDIGION
+  // ===================
+  mwnt: { name: "Mwnt", stationId: "0489", lat: 52.13, lon: -4.56 },
   aberporth: { name: "Aberporth", stationId: "0488A", lat: 52.13, lon: -4.55 },
+  tresaith: { name: "Tresaith", stationId: "0488", lat: 52.14, lon: -4.51 },
+  penbryn: { name: "Penbryn", stationId: "0488", lat: 52.15, lon: -4.49 },
+  llangrannog: { name: "Llangrannog", stationId: "0488", lat: 52.16, lon: -4.47 },
+  cilborth: { name: "Cilborth", stationId: "0488", lat: 52.17, lon: -4.47 },
   newquay: { name: "New Quay", stationId: "0488", lat: 52.22, lon: -4.35 },
   aberystwyth: { name: "Aberystwyth", stationId: "0487", lat: 52.42, lon: -4.08 },
+  clarach: { name: "Clarach South", stationId: "0487", lat: 52.44, lon: -4.07 },
+  borth: { name: "Borth", stationId: "0487", lat: 52.49, lon: -4.05 },
   aberdovey: { name: "Aberdovey", stationId: "0486", lat: 52.54, lon: -4.05 },
+
+  // ===================
+  // GWYNEDD
+  // ===================
+  tywyn: { name: "Tywyn", stationId: "0486", lat: 52.59, lon: -4.09 },
+  fairbourne: { name: "Fairbourne", stationId: "0485", lat: 52.70, lon: -4.05 },
   barmouth: { name: "Barmouth", stationId: "0485", lat: 52.72, lon: -4.05 },
-  // Llŷn Peninsula
-  criccieth: { name: "Criccieth", stationId: "0483A", lat: 52.92, lon: -4.23 },
-  pwllheli: { name: "Pwllheli", stationId: "0483", lat: 52.89, lon: -4.40 },
+  talybont: { name: "Tal-y-Bont", stationId: "0485", lat: 52.77, lon: -4.11 },
+  llandanwg: { name: "Llandanwg", stationId: "0485", lat: 52.85, lon: -4.12 },
+  harlech: { name: "Harlech", stationId: "0485", lat: 52.86, lon: -4.12 },
+
+  // ===================
+  // LLŶN PENINSULA
+  // ===================
+  porthneigwl: { name: "Porth Neigwl", stationId: "0482B", lat: 52.81, lon: -4.52 },
   abersoch: { name: "Abersoch", stationId: "0482B", lat: 52.82, lon: -4.50 },
   aberdaron: { name: "Aberdaron", stationId: "0482A", lat: 52.80, lon: -4.72 },
+  pwllheli: { name: "Pwllheli", stationId: "0483", lat: 52.89, lon: -4.40 },
+  criccieth: { name: "Criccieth", stationId: "0483A", lat: 52.92, lon: -4.23 },
+  morfanefyn: { name: "Morfa Nefyn", stationId: "0481", lat: 52.94, lon: -4.56 },
+  porthnefyn: { name: "Porth Nefyn", stationId: "0481", lat: 52.94, lon: -4.52 },
   porthdinllaen: { name: "Porth Dinllaen", stationId: "0481", lat: 52.94, lon: -4.56 },
-  // Anglesey
-  trearddur: { name: "Trearddur Bay", stationId: "0479", lat: 53.27, lon: -4.62 },
-  rhosneigr: { name: "Rhosneigr", stationId: "0479A", lat: 53.23, lon: -4.51 },
+  morfadinlle: { name: "Morfa Dinlle", stationId: "0480", lat: 53.06, lon: -4.39 },
+
+  // ===================
+  // ANGLESEY
+  // ===================
   llanddwyn: { name: "Llanddwyn", stationId: "0480", lat: 53.13, lon: -4.41 },
-  benllech: { name: "Benllech", stationId: "0476A", lat: 53.32, lon: -4.22 },
-  cemaes: { name: "Cemaes Bay", stationId: "0477A", lat: 53.41, lon: -4.44 },
+  aberffraw: { name: "Aberffraw", stationId: "0479", lat: 53.19, lon: -4.47 },
+  rhosneigr: { name: "Rhosneigr", stationId: "0479A", lat: 53.23, lon: -4.51 },
+  silverbay: { name: "Silver Bay", stationId: "0479", lat: 53.25, lon: -4.58 },
+  trearddur: { name: "Trearddur Bay", stationId: "0479", lat: 53.27, lon: -4.62 },
+  porthdafarch: { name: "Porth Dafarch", stationId: "0479", lat: 53.28, lon: -4.64 },
   beaumaris: { name: "Beaumaris", stationId: "0472", lat: 53.26, lon: -4.09 },
-  // North Wales Coast
+  llanddona: { name: "Llanddona", stationId: "0476A", lat: 53.31, lon: -4.07 },
+  benllech: { name: "Benllech", stationId: "0476A", lat: 53.32, lon: -4.22 },
+  traethlligwy: { name: "Traeth Lligwy", stationId: "0476A", lat: 53.36, lon: -4.27 },
+  churchbay: { name: "Church Bay", stationId: "0477A", lat: 53.38, lon: -4.54 },
+  cemaes: { name: "Cemaes Bay", stationId: "0477A", lat: 53.41, lon: -4.44 },
+
+  // ===================
+  // NORTH WALES COAST
+  // ===================
+  llanfairfechan: { name: "Llanfairfechan", stationId: "0471", lat: 53.26, lon: -3.99 },
+  penmaenmawr: { name: "Penmaenmawr", stationId: "0471", lat: 53.27, lon: -3.93 },
   llandudno: { name: "Llandudno", stationId: "0471", lat: 53.32, lon: -3.83 },
   colwynbay: { name: "Colwyn Bay", stationId: "0470", lat: 53.29, lon: -3.72 },
-  // Southwest England
+  kinmelbay: { name: "Kinmel Bay", stationId: "0470", lat: 53.32, lon: -3.51 },
+  prestatyn: { name: "Prestatyn", stationId: "0470", lat: 53.34, lon: -3.41 },
+
+  // ===================
+  // SOUTHWEST ENGLAND
+  // ===================
   sennen: { name: "Sennen Cove", stationId: "0002", lat: 50.07, lon: -5.70 },
   falmouth: { name: "Falmouth", stationId: "0005", lat: 50.15, lon: -5.05 },
   looe: { name: "Looe", stationId: "0011", lat: 50.35, lon: -4.45 },
@@ -69,32 +138,100 @@ const locations = {
 const WELSH_WATER_ENDPOINT = 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query';
 
 const BEACH_TO_WELSH_WATER = {
-  "Rhossili": "Rhossili",
-  "Langland Bay": "Langland Bay",
-  "Caswell Bay": "Caswell Bay",
-  "Barafundle Bay": "Barafundle",
-  "Tenby": "Tenby North",
-  "Saundersfoot": "Saundersfoot",
-  "Aberdovey": "Aberdyfi",
-  "Barmouth": "Barmouth",
-  "Harlech": "Harlech",
-  "Abersoch": "Abersoch",
-  "Benllech": "Benllech",
-  "Trearddur Bay": "Trearddur Bay",
-  "Rhosneigr": "Rhosneigr",
-  "Llandudno": "Llandudno West Shore",
-  "Colwyn Bay": "Colwyn Bay",
-  "Pwllheli": "Glan Don Beach",
-  "Criccieth": "Criccieth",
-  "Aberporth": "Aberporth",
-  "New Quay": "New Quay",
-  "Aberystwyth": "Aberystwyth North",
-  "Porthcawl": "Sandy Bay Porthcawl",
-  "Mumbles": "Bracelet Bay",
+  // South Wales
   "Barry Island": "Whitmore Bay Barry Island",
   "Penarth": "Penarth Beach",
+  "Cold Knap": "Cold Knap Barry",
+  "Col-Huw Beach": "Col-Huw Beach (Llantwit Major)",
+  "Porthcawl": "Sandy Bay Porthcawl",
+  "Rest Bay": "Rest Bay Porthcawl",
+  "Ogmore-by-Sea": "Ogmore-By-Sea",
+  "Southerndown": "Southerndown",
+  "Aberafan": "Aberafan",
+  "Swansea Bay": "Swansea Bay",
+  "Pembrey": "Pembrey",
+  "Pendine": "Pendine",
+
+  // Gower
+  "Mumbles": "Bracelet Bay",
+  "Bracelet Bay": "Bracelet Bay",
+  "Limeslade Bay": "Limeslade Bay",
+  "Langland Bay": "Langland Bay",
+  "Caswell Bay": "Caswell Bay",
+  "Oxwich Bay": "Oxwich Bay",
+  "Port Eynon": "Port Eynon Bay",
+  "Rhossili": "Rhossili",
+
+  // Pembrokeshire
+  "Amroth": "Amroth Central",
+  "Saundersfoot": "Saundersfoot",
+  "Tenby": "Tenby North",
+  "Penally": "Penally",
+  "Lydstep": "Lydstep",
+  "Manorbier": "Manorbier",
+  "Freshwater East": "Freshwater East",
+  "Barafundle Bay": "Barafundle",
+  "Freshwater West": "Freshwater West",
   "Broad Haven": "Broad Haven (Central)",
-  "Poppit Sands": "Poppit Sands"
+  "Newgale": "Newgale",
+  "Marloes Sands": "Marloes Sands",
+  "Whitesands Bay": "Whitesands",
+  "Newport Sands": "Newport North",
+  "Poppit Sands": "Poppit West",
+
+  // Ceredigion
+  "Mwnt": "Mwnt",
+  "Aberporth": "Aberporth",
+  "Tresaith": "Tresaith",
+  "Penbryn": "Penbryn",
+  "Llangrannog": "Llangrannog",
+  "Cilborth": "Cilborth",
+  "New Quay": "New Quay Harbour",
+  "Aberystwyth": "Aberystwyth North",
+  "Clarach South": "Clarach South",
+  "Borth": "Borth",
+  "Aberdovey": "Aberdyfi",
+
+  // Gwynedd
+  "Tywyn": "Tywyn",
+  "Fairbourne": "Fairbourne",
+  "Barmouth": "Barmouth",
+  "Tal-y-Bont": "Tal-y-Bont",
+  "Llandanwg": "Llandanwg",
+  "Harlech": "Harlech",
+
+  // Llŷn Peninsula
+  "Porth Neigwl": "Porth Neigwl",
+  "Abersoch": "Abersoch",
+  "Aberdaron": "Aberdaron",
+  "Pwllheli": "Glan Don Beach",
+  "Criccieth": "Criccieth",
+  "Morfa Nefyn": "Morfa Nefyn",
+  "Porth Nefyn": "Porth Nefyn",
+  "Porth Dinllaen": "Morfa Nefyn",
+  "Morfa Dinlle": "Morfa Dinlle",
+
+  // Anglesey
+  "Llanddwyn": "Llanddwyn",
+  "Aberffraw": "Aberffraw",
+  "Rhosneigr": "Rhosneigr",
+  "Silver Bay": "Silver Bay Rhoscolyn",
+  "Trearddur Bay": "Trearddur Bay",
+  "Porth Dafarch": "Porth Dafarch",
+  "Beaumaris": "Beaumaris",
+  "Llanddona": "Llanddona",
+  "Benllech": "Benllech",
+  "Traeth Lligwy": "Traeth Lligwy",
+  "Church Bay": "Church Bay",
+  "Cemaes Bay": "Cemaes",
+
+  // North Wales Coast
+  "Llanfairfechan": "Llanfairfechan",
+  "Penmaenmawr": "Penmaenmawr",
+  "Llandudno": "Llandudno West Shore",
+  "Colwyn Bay": "Colwyn Bay",
+  "Kinmel Bay": "Kinmel Bay (Sandy Cove)",
+  "Prestatyn": "Prestatyn"
 };
 
 async function fetchWelshSewageStatus(beachName) {
@@ -260,11 +397,9 @@ async function fetchEnglishSewageStatus(beachSlug) {
 // =============================================================================
 
 async function fetchSewageStatus(beachSlug, beachName) {
-  // Check if English beach first
   if (ENGLISH_BEACHES[beachSlug]) {
     return await fetchEnglishSewageStatus(beachSlug);
   }
-  // Otherwise use Welsh Water
   return await fetchWelshSewageStatus(beachName);
 }
 
@@ -354,7 +489,7 @@ app.get('/conditions/:location', async (req, res) => {
   try { res.json(await getConditions(slug)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, data]) => ({ slug, name: data.name }))); });
+app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, name]) => ({ slug, name: locations[slug].name }))); });
 
 app.get('/stations', async (req, res) => {
   const apiKey = process.env.ADMIRALTY_API_KEY;
@@ -367,7 +502,7 @@ app.get('/stations', async (req, res) => {
 });
 
 // =============================================================================
-// TEST ENDPOINTS - English Sewage
+// TEST ENDPOINTS
 // =============================================================================
 
 app.get('/test-english/:beach', async (req, res) => {
@@ -417,15 +552,47 @@ app.post('/alexa', express.json(), async (req, res) => {
       if (!locationSlot) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Which beach would you like conditions for? Try saying Porthcawl or Barry Island.' }, shouldEndSession: false } });
       
       const slug = locationSlot.toLowerCase()
-        .replace(' island', '').replace(' bay', '').replace(' cove', '').replace(' sands', '')
-        .replace('lyme regis', 'lymeregis').replace('rest bay', 'restbay').replace('colwyn bay', 'colwynbay')
-        .replace('new quay', 'newquay').replace('newport sands', 'newportsands').replace('broad haven', 'broadhaven')
-        .replace('freshwater west', 'freshwaterwest').replace('porth dinllaen', 'porthdinllaen')
-        .replace('trearddur bay', 'trearddur').replace('cemaes bay', 'cemaes')
+        // Remove common suffixes
+        .replace(' island', '').replace(' bay', '').replace(' cove', '').replace(' sands', '').replace(' beach', '')
+        // Multi-word beaches
+        .replace('lyme regis', 'lymeregis')
+        .replace('rest bay', 'restbay')
+        .replace('colwyn bay', 'colwynbay')
+        .replace('new quay', 'newquay')
+        .replace('newport sands', 'newportsands')
+        .replace('broad haven', 'broadhaven')
+        .replace('freshwater west', 'freshwaterwest')
+        .replace('freshwater east', 'freshwatereast')
+        .replace('porth dinllaen', 'porthdinllaen')
+        .replace('porth neigwl', 'porthneigwl')
+        .replace("hell's mouth", 'porthneigwl')
+        .replace('hells mouth', 'porthneigwl')
+        .replace('port eynon', 'porteynon')
+        .replace('bracelet bay', 'braceletbay')
+        .replace('limeslade bay', 'limeslade')
+        .replace('oxwich bay', 'oxwich')
+        .replace('swansea bay', 'swanseabay')
+        .replace('cold knap', 'coldknap')
+        .replace('col-huw', 'colhuw')
+        .replace('col huw', 'colhuw')
+        .replace('morfa nefyn', 'morfanefyn')
+        .replace('porth nefyn', 'porthnefyn')
+        .replace('morfa dinlle', 'morfadinlle')
+        .replace('tal-y-bont', 'talybont')
+        .replace('taly bont', 'talybont')
+        .replace('silver bay', 'silverbay')
+        .replace('porth dafarch', 'porthdafarch')
+        .replace('church bay', 'churchbay')
+        .replace('traeth lligwy', 'traethlligwy')
+        .replace('kinmel bay', 'kinmelbay')
+        .replace('trearddur bay', 'trearddur')
+        .replace('cemaes bay', 'cemaes')
+        .replace('clarach south', 'clarach')
+        // Remove remaining spaces
         .replace(/ /g, '');
       
       const conditions = await getConditions(slug);
-      if (!conditions) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `Sorry, I don't have data for ${locationSlot}. Try Barry, Porthcawl, Tenby, or Rhossili.` }, shouldEndSession: false } });
+      if (!conditions) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `Sorry, I don't have data for ${locationSlot}. Try Barry, Porthcawl, Tenby, Rhossili, or Llangrannog.` }, shouldEndSession: false } });
       
       let speech = `Here are conditions at ${conditions.location}. `;
       
@@ -443,12 +610,12 @@ app.post('/alexa', express.json(), async (req, res) => {
       return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: true } });
     }
     
-    if (intentName === 'ListLocationsIntent') return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `I have conditions for: ${Object.values(locations).map(l => l.name).join(', ')}.` }, shouldEndSession: false } });
-    if (intentName === 'AMAZON.HelpIntent') return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Ask me for conditions at a beach. For example, say: conditions at Porthcawl. Or ask what locations I cover.' }, shouldEndSession: false } });
+    if (intentName === 'ListLocationsIntent') return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `I have conditions for ${Object.keys(locations).length} beaches across Wales and Southwest England. Ask me about any beach by name.` }, shouldEndSession: false } });
+    if (intentName === 'AMAZON.HelpIntent') return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Ask me for conditions at a beach. For example, say: conditions at Porthcawl, or what is Llangrannog like.' }, shouldEndSession: false } });
     if (intentName === 'AMAZON.StopIntent' || intentName === 'AMAZON.CancelIntent') return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Happy swimming!' }, shouldEndSession: true } });
   }
   
   res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: "Sorry, I didn't understand that. Ask me about conditions at a beach." }, shouldEndSession: false } });
 });
 
-app.listen(PORT, () => { console.log(`Shorecast running on port ${PORT}`); });
+app.listen(PORT, () => { console.log(`Shorecast running on port ${PORT} with ${Object.keys(locations).length} beaches`); });
