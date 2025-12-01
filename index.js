@@ -36,8 +36,12 @@ const locations = {
   // PEMBROKESHIRE
   // ===================
   amroth: { name: "Amroth", stationId: "0502", lat: 51.73, lon: -4.66 },
+  wisemansbridge: { name: "Wiseman's Bridge", stationId: "0502", lat: 51.72, lon: -4.68 },
+  coppethall: { name: "Coppet Hall", stationId: "0502", lat: 51.71, lon: -4.69 },
   saundersfoot: { name: "Saundersfoot", stationId: "0502", lat: 51.71, lon: -4.69 },
-  tenby: { name: "Tenby", stationId: "0502", lat: 51.67, lon: -4.70 },
+  tenby: { name: "Tenby North", stationId: "0502", lat: 51.67, lon: -4.70 },
+  castlebeach: { name: "Castle Beach Tenby", stationId: "0502", lat: 51.67, lon: -4.70 },
+  tenbysouth: { name: "Tenby South", stationId: "0502", lat: 51.66, lon: -4.70 },
   penally: { name: "Penally", stationId: "0502", lat: 51.67, lon: -4.72 },
   lydstep: { name: "Lydstep", stationId: "0502", lat: 51.64, lon: -4.74 },
   manorbier: { name: "Manorbier", stationId: "0502", lat: 51.65, lon: -4.80 },
@@ -45,8 +49,11 @@ const locations = {
   barafundle: { name: "Barafundle Bay", stationId: "0501", lat: 51.62, lon: -4.90 },
   freshwaterwest: { name: "Freshwater West", stationId: "0501", lat: 51.64, lon: -5.06 },
   broadhaven: { name: "Broad Haven", stationId: "0492B", lat: 51.78, lon: -5.11 },
+  littlehaven: { name: "Little Haven", stationId: "0492B", lat: 51.77, lon: -5.10 },
   newgale: { name: "Newgale", stationId: "0492B", lat: 51.85, lon: -5.12 },
   marloes: { name: "Marloes Sands", stationId: "0495", lat: 51.73, lon: -5.21 },
+  dale: { name: "Dale", stationId: "0495", lat: 51.70, lon: -5.17 },
+  caerfai: { name: "Caerfai", stationId: "0492", lat: 51.87, lon: -5.27 },
   whitesands: { name: "Whitesands Bay", stationId: "0492", lat: 51.88, lon: -5.30 },
   newportsands: { name: "Newport Sands", stationId: "0490", lat: 52.02, lon: -4.88 },
   poppit: { name: "Poppit Sands", stationId: "0489", lat: 52.12, lon: -4.68 },
@@ -112,6 +119,8 @@ const locations = {
   penmaenmawr: { name: "Penmaenmawr", stationId: "0471", lat: 53.27, lon: -3.93 },
   llandudno: { name: "Llandudno", stationId: "0471", lat: 53.32, lon: -3.83 },
   colwynbay: { name: "Colwyn Bay", stationId: "0470", lat: 53.29, lon: -3.72 },
+  portheirias: { name: "Porth Eirias", stationId: "0470", lat: 53.29, lon: -3.73 },
+  abergele: { name: "Abergele", stationId: "0470", lat: 53.28, lon: -3.58 },
   kinmelbay: { name: "Kinmel Bay", stationId: "0470", lat: 53.32, lon: -3.51 },
   prestatyn: { name: "Prestatyn", stationId: "0470", lat: 53.34, lon: -3.41 },
 
@@ -236,7 +245,7 @@ const BEACH_TO_WELSH_WATER = {
 
 async function fetchWelshSewageStatus(beachName) {
   const wwName = BEACH_TO_WELSH_WATER[beachName];
-  if (!wwName) return { status: 'no_data', message: 'No sewage monitoring for this beach' };
+  if (!wwName) return { status: 'no_data', message: 'No sewage monitoring data available', safetyRank: null };
   
   try {
     const safeName = wwName.replace(/'/g, "''");
@@ -253,22 +262,22 @@ async function fetchWelshSewageStatus(beachName) {
     const data = await response.json();
     const features = data.features || [];
     
-    if (features.length === 0) return { status: 'no_monitors', message: 'No monitored overflows near this beach' };
+    if (features.length === 0) return { status: 'no_monitors', message: 'No nearby sewage outfalls', safetyRank: 1 };
     
     const active = features.filter(f => f.attributes.status === 'Overflow Operating');
     const recent24h = features.filter(f => (f.attributes.status || '').includes('Has in the last 24 hours'));
     const investigating = features.filter(f => f.attributes.status === 'Under Investigation');
     const total7dHours = features.reduce((sum, f) => sum + (f.attributes.discharge_duration_last_7_daysH || 0), 0);
     
-    if (active.length > 0) return { status: 'warning', message: `${active.length} active sewage discharge${active.length > 1 ? 's' : ''}`, hours7d: total7dHours };
-    if (recent24h.length > 0) return { status: 'recent', message: 'Discharge in last 24 hours', hours7d: total7dHours };
-    if (investigating.length > 0) return { status: 'caution', message: 'Monitor under investigation', hours7d: total7dHours };
-    if (total7dHours > 12) return { status: 'recent_week', message: `${Math.round(total7dHours)} hours discharge in last 7 days`, hours7d: total7dHours };
+    if (active.length > 0) return { status: 'warning', message: `${active.length} active sewage discharge${active.length > 1 ? 's' : ''}`, hours7d: total7dHours, safetyRank: 6 };
+    if (recent24h.length > 0) return { status: 'recent', message: 'Discharge in last 24 hours', hours7d: total7dHours, safetyRank: 5 };
+    if (investigating.length > 0) return { status: 'caution', message: 'Monitor under investigation', hours7d: total7dHours, safetyRank: 4 };
+    if (total7dHours > 12) return { status: 'recent_week', message: `${Math.round(total7dHours)} hours discharge in last 7 days`, hours7d: total7dHours, safetyRank: 3 };
     
-    return { status: 'clear', message: 'No recent discharge', hours7d: total7dHours };
+    return { status: 'clear', message: 'No recent discharge', hours7d: total7dHours, safetyRank: 2 };
   } catch (err) {
     console.error('Welsh sewage fetch error:', err.message);
-    return { status: 'error', message: 'Could not check sewage status' };
+    return { status: 'error', message: 'Could not check sewage status', safetyRank: null };
   }
 }
 
@@ -315,12 +324,12 @@ async function fetchSWWSewageStatus(beachSlug) {
     return parseSWWResponse(data.features || [], beach.beachName);
   } catch (error) {
     console.error(`SWW API error:`, error.message);
-    return { status: 'error' };
+    return { status: 'error', safetyRank: null };
   }
 }
 
 function parseSWWResponse(features, beachName) {
-  if (!features.length) return { status: 'no_data', message: `No monitors for ${beachName}` };
+  if (!features.length) return { status: 'no_data', message: `No monitors for ${beachName}`, safetyRank: null };
 
   const active = features.filter(f => f.attributes.isActivated === 1);
   const recent = features.filter(f => {
@@ -331,9 +340,9 @@ function parseSWWResponse(features, beachName) {
     return hours > 0 && hours < 48;
   });
 
-  if (active.length > 0) return { status: 'warning', count: active.length, total: features.length };
-  if (recent.length > 0) return { status: 'recent', count: recent.length, total: features.length };
-  return { status: 'clear', total: features.length };
+  if (active.length > 0) return { status: 'warning', count: active.length, total: features.length, safetyRank: 6 };
+  if (recent.length > 0) return { status: 'recent', count: recent.length, total: features.length, safetyRank: 5 };
+  return { status: 'clear', total: features.length, safetyRank: 2 };
 }
 
 async function fetchNSOHSewageStatus(beachSlug) {
@@ -341,7 +350,7 @@ async function fetchNSOHSewageStatus(beachSlug) {
   if (!beach || beach.company === 'sww') return null;
 
   const apiUrl = ENGLISH_SEWAGE_APIS[beach.company];
-  if (!apiUrl) return { status: 'error' };
+  if (!apiUrl) return { status: 'error', safetyRank: null };
 
   try {
     const params = new URLSearchParams({
@@ -363,12 +372,12 @@ async function fetchNSOHSewageStatus(beachSlug) {
     return parseNSOHResponse(data.features || []);
   } catch (error) {
     console.error(`NSOH API error for ${beachSlug}:`, error.message);
-    return { status: 'error' };
+    return { status: 'error', safetyRank: null };
   }
 }
 
 function parseNSOHResponse(features) {
-  if (!features.length) return { status: 'no_data' };
+  if (!features.length) return { status: 'no_data', safetyRank: null };
 
   const active = features.filter(f => f.attributes.Status === 1);
   const recent = features.filter(f => {
@@ -379,9 +388,9 @@ function parseNSOHResponse(features) {
     return hours > 0 && hours < 48;
   });
 
-  if (active.length > 0) return { status: 'warning', count: active.length, total: features.length };
-  if (recent.length > 0) return { status: 'recent', count: recent.length, total: features.length };
-  return { status: 'clear', total: features.length };
+  if (active.length > 0) return { status: 'warning', count: active.length, total: features.length, safetyRank: 6 };
+  if (recent.length > 0) return { status: 'recent', count: recent.length, total: features.length, safetyRank: 5 };
+  return { status: 'clear', total: features.length, safetyRank: 2 };
 }
 
 async function fetchEnglishSewageStatus(beachSlug) {
@@ -409,8 +418,8 @@ function formatSewageForAlexa(beachName, sewage) {
   if (sewage.status === 'recent') return `Note: There was sewage discharge near ${beachName} in the last 48 hours.`;
   if (sewage.status === 'caution') return `Note: Sewage monitors near ${beachName} are under investigation.`;
   if (sewage.status === 'recent_week' && sewage.hours7d > 24) return `Note: There were ${Math.round(sewage.hours7d)} hours of sewage discharge near ${beachName} in the last 7 days.`;
-  if (sewage.status === 'clear') return `Good news! No sewage discharge activity near ${beachName}.`;
-  if (sewage.status === 'no_monitors') return null; // Don't mention if no monitors - not an issue
+  if (sewage.status === 'clear') return `The water looks clear at ${beachName}.`;
+  if (sewage.status === 'no_monitors') return `Good news - there are no sewage outfalls near ${beachName}.`;
   return null;
 }
 
