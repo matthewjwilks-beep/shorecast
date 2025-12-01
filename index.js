@@ -253,7 +253,7 @@ async function fetchWelshSewageStatus(beachName) {
     const data = await response.json();
     const features = data.features || [];
     
-    if (features.length === 0) return { status: 'no_data', message: 'No monitors found' };
+    if (features.length === 0) return { status: 'no_monitors', message: 'No monitored overflows near this beach' };
     
     const active = features.filter(f => f.attributes.status === 'Overflow Operating');
     const recent24h = features.filter(f => (f.attributes.status || '').includes('Has in the last 24 hours'));
@@ -410,6 +410,7 @@ function formatSewageForAlexa(beachName, sewage) {
   if (sewage.status === 'caution') return `Note: Sewage monitors near ${beachName} are under investigation.`;
   if (sewage.status === 'recent_week' && sewage.hours7d > 24) return `Note: There were ${Math.round(sewage.hours7d)} hours of sewage discharge near ${beachName} in the last 7 days.`;
   if (sewage.status === 'clear') return `Good news! No sewage discharge activity near ${beachName}.`;
+  if (sewage.status === 'no_monitors') return null; // Don't mention if no monitors - not an issue
   return null;
 }
 
@@ -489,7 +490,7 @@ app.get('/conditions/:location', async (req, res) => {
   try { res.json(await getConditions(slug)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, name]) => ({ slug, name: locations[slug].name }))); });
+app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, data]) => ({ slug, name: data.name }))); });
 
 app.get('/stations', async (req, res) => {
   const apiKey = process.env.ADMIRALTY_API_KEY;
@@ -502,7 +503,7 @@ app.get('/stations', async (req, res) => {
 });
 
 // =============================================================================
-// TEST ENDPOINTS
+// DEBUG / TEST ENDPOINTS
 // =============================================================================
 
 app.get('/test-english/:beach', async (req, res) => {
@@ -530,6 +531,43 @@ app.get('/debug-nsoh/:company', async (req, res) => {
     const response = await fetch(`${url}?${params}`);
     const data = await response.json();
     res.json({ fields: data.features?.[0] ? Object.keys(data.features[0].attributes) : [], sample: data.features?.[0]?.attributes });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
+// Debug Welsh Water - search for bathing water names
+app.get('/debug-welsh-water/:search', async (req, res) => {
+  try {
+    const search = req.params.search;
+    const params = new URLSearchParams({
+      where: `Linked_Bathing_Water LIKE '%${search}%'`,
+      outFields: 'asset_name,Linked_Bathing_Water,status',
+      returnGeometry: 'false',
+      f: 'json'
+    });
+    const response = await fetch(`${WELSH_WATER_ENDPOINT}?${params}`);
+    const data = await response.json();
+    const results = (data.features || []).map(f => ({
+      asset: f.attributes.asset_name,
+      bathingWater: f.attributes.Linked_Bathing_Water,
+      status: f.attributes.status
+    }));
+    res.json({ search, count: results.length, results });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
+// List all Welsh Water bathing water names
+app.get('/debug-welsh-water-list', async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      where: "Linked_Bathing_Water IS NOT NULL AND Linked_Bathing_Water <> ''",
+      outFields: 'Linked_Bathing_Water',
+      returnGeometry: 'false',
+      f: 'json'
+    });
+    const response = await fetch(`${WELSH_WATER_ENDPOINT}?${params}`);
+    const data = await response.json();
+    const names = [...new Set((data.features || []).map(f => f.attributes.Linked_Bathing_Water))].sort();
+    res.json({ count: names.length, bathingWaters: names });
   } catch (e) { res.json({ error: e.message }); }
 });
 
@@ -604,7 +642,7 @@ app.post('/alexa', express.json(), async (req, res) => {
         if (conditions.seaTemp) speech += `Sea temperature is ${conditions.seaTemp}. `;
         if (conditions.waveHeight) speech += `Wave height is ${conditions.waveHeight}. `;
         const sewageNote = formatSewageForAlexa(conditions.location, conditions.sewage);
-        if (sewageNote && conditions.sewage.status !== 'clear') speech += sewageNote;
+        if (sewageNote) speech += sewageNote;
       }
       
       return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: true } });
