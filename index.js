@@ -421,17 +421,6 @@ async function fetchSewageStatus(beachSlug, beachName) {
   return await fetchWelshSewageStatus(beachName);
 }
 
-function formatSewageForAlexa(beachName, sewage) {
-  if (!sewage) return null;
-  if (sewage.status === 'warning') return `Warning: There is an active sewage discharge near ${beachName}. Swimming is not recommended.`;
-  if (sewage.status === 'recent') return `Note: There was sewage discharge near ${beachName} in the last 48 hours.`;
-  if (sewage.status === 'caution') return `Note: Sewage monitors near ${beachName} are under investigation.`;
-  if (sewage.status === 'recent_week' && sewage.hours7d > 24) return `Note: There were ${Math.round(sewage.hours7d)} hours of sewage discharge near ${beachName} in the last 7 days.`;
-  if (sewage.status === 'clear') return `The water looks clear at ${beachName}.`;
-  if (sewage.status === 'no_monitors') return `Good news - there are no sewage outfalls near ${beachName}.`;
-  return null;
-}
-
 // =============================================================================
 // RECOMMENDATION ENGINE
 // =============================================================================
@@ -609,7 +598,7 @@ function getRecommendation(conditions, mode = 'swimming') {
 }
 
 // =============================================================================
-// EXISTING FUNCTIONS
+// CORE FUNCTIONS
 // =============================================================================
 
 function getSunTimes(lat, lon, date = new Date()) {
@@ -742,7 +731,7 @@ app.get('/conditions/:location', async (req, res) => {
   try { res.json(await getConditions(slug, mode)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, data]) => ({ slug, name: data.name }))); });
+app.get('/locations', (req, res) => { res.json(Object.entries(locations).map(([slug, data]) => ({ slug, name: data.name, facing: data.facing }))); });
 
 app.get('/stations', async (req, res) => {
   const apiKey = process.env.ADMIRALTY_API_KEY;
@@ -786,7 +775,6 @@ app.get('/debug-nsoh/:company', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
-// Debug Welsh Water - search for bathing water names
 app.get('/debug-welsh-water/:search', async (req, res) => {
   try {
     const search = req.params.search;
@@ -807,7 +795,6 @@ app.get('/debug-welsh-water/:search', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
-// List all Welsh Water bathing water names
 app.get('/debug-welsh-water-list', async (req, res) => {
   try {
     const params = new URLSearchParams({
@@ -827,6 +814,110 @@ app.get('/debug-welsh-water-list', async (req, res) => {
 // ALEXA ENDPOINT
 // =============================================================================
 
+function parseBeachSlug(input) {
+  return input.toLowerCase()
+    .replace(' island', '').replace(' bay', '').replace(' cove', '').replace(' sands', '').replace(' beach', '')
+    .replace('lyme regis', 'lymeregis')
+    .replace('rest bay', 'restbay')
+    .replace('colwyn bay', 'colwynbay')
+    .replace('new quay', 'newquay')
+    .replace('newport sands', 'newportsands')
+    .replace('broad haven', 'broadhaven')
+    .replace('little haven', 'littlehaven')
+    .replace('freshwater west', 'freshwaterwest')
+    .replace('freshwater east', 'freshwatereast')
+    .replace('porth dinllaen', 'porthdinllaen')
+    .replace('porth neigwl', 'porthneigwl')
+    .replace("hell's mouth", 'porthneigwl')
+    .replace('hells mouth', 'porthneigwl')
+    .replace('port eynon', 'porteynon')
+    .replace('bracelet bay', 'braceletbay')
+    .replace('limeslade bay', 'limeslade')
+    .replace('oxwich bay', 'oxwich')
+    .replace('swansea bay', 'swanseabay')
+    .replace('cold knap', 'coldknap')
+    .replace('col-huw', 'colhuw')
+    .replace('col huw', 'colhuw')
+    .replace('morfa nefyn', 'morfanefyn')
+    .replace('porth nefyn', 'porthnefyn')
+    .replace('morfa dinlle', 'morfadinlle')
+    .replace('tal-y-bont', 'talybont')
+    .replace('taly bont', 'talybont')
+    .replace('silver bay', 'silverbay')
+    .replace('porth dafarch', 'porthdafarch')
+    .replace('church bay', 'churchbay')
+    .replace('traeth lligwy', 'traethlligwy')
+    .replace('kinmel bay', 'kinmelbay')
+    .replace('trearddur bay', 'trearddur')
+    .replace('cemaes bay', 'cemaes')
+    .replace('clarach south', 'clarach')
+    .replace("wiseman's bridge", 'wisemansbridge')
+    .replace('wisemans bridge', 'wisemansbridge')
+    .replace('coppet hall', 'coppethall')
+    .replace('castle beach', 'castlebeach')
+    .replace('tenby south', 'tenbysouth')
+    .replace('porth eirias', 'portheirias')
+    .replace(/ /g, '');
+}
+
+function buildAlexaSpeech(conditions) {
+  const rec = conditions.recommendation;
+  const name = conditions.location;
+  const weather = conditions.weather || {};
+  
+  let speech = '';
+  
+  if (rec.status === 'red') {
+    speech = `${name} isn't looking good right now. `;
+    if (conditions.sewage?.status === 'warning') {
+      speech += `There's an active sewage discharge, so swimming is not recommended. `;
+    } else if (conditions.sewage?.status === 'recent') {
+      speech += `There was sewage discharge in the last 48 hours. `;
+    }
+    if (conditions.waveHeightRaw > 2) {
+      speech += `Waves are ${conditions.waveHeight}, which is very rough. `;
+    }
+    if (weather.windSpeedRaw > 40) {
+      speech += `It's also very windy at ${weather.windSpeed}. `;
+    }
+  } else if (rec.status === 'amber') {
+    speech = `${name} is okay, but check the details. `;
+    if (conditions.sewage?.status === 'recent') {
+      speech += `There was sewage discharge in the last 48 hours. `;
+    }
+    if (conditions.waveHeightRaw > 1.5) {
+      speech += `Waves are ${conditions.waveHeight}, a bit choppy. `;
+    }
+    speech += `Water temperature is ${conditions.seaTemp}. `;
+    if (conditions.nextHighTide) {
+      speech += `High tide is at ${conditions.nextHighTide.time}. `;
+    }
+  } else {
+    speech = `${name} is looking good for a swim! `;
+    speech += `Water temperature is ${conditions.seaTemp}. `;
+    if (conditions.waveHeightRaw < 0.5) {
+      speech += `The water is calm. `;
+    } else {
+      speech += `Waves are ${conditions.waveHeight}. `;
+    }
+    if (conditions.nextHighTide) {
+      speech += `High tide is at ${conditions.nextHighTide.time}. `;
+    }
+    if (conditions.sewage?.status === 'clear') {
+      speech += `No sewage alerts. `;
+    }
+    const hour = new Date().getHours();
+    if ((conditions.facing === 'west' || conditions.facing === 'southwest') && hour >= 15 && weather.cloudCover < 50) {
+      speech += `It's west-facing, so good for sunset. `;
+    }
+    if ((conditions.facing === 'east' || conditions.facing === 'southeast') && hour < 10 && weather.cloudCover < 50) {
+      speech += `It's east-facing, great for catching the sunrise. `;
+    }
+  }
+  
+  return speech.trim();
+}
+
 app.post('/alexa', express.json(), async (req, res) => {
   const requestType = req.body.request.type;
   
@@ -841,69 +932,12 @@ app.post('/alexa', express.json(), async (req, res) => {
       const locationSlot = req.body.request.intent.slots?.location?.value;
       if (!locationSlot) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Which beach would you like conditions for? Try saying Porthcawl or Barry Island.' }, shouldEndSession: false } });
       
-      const slug = locationSlot.toLowerCase()
-        // Remove common suffixes
-        .replace(' island', '').replace(' bay', '').replace(' cove', '').replace(' sands', '').replace(' beach', '')
-        // Multi-word beaches
-        .replace('lyme regis', 'lymeregis')
-        .replace('rest bay', 'restbay')
-        .replace('colwyn bay', 'colwynbay')
-        .replace('new quay', 'newquay')
-        .replace('newport sands', 'newportsands')
-        .replace('broad haven', 'broadhaven')
-        .replace('little haven', 'littlehaven')
-        .replace('freshwater west', 'freshwaterwest')
-        .replace('freshwater east', 'freshwatereast')
-        .replace('porth dinllaen', 'porthdinllaen')
-        .replace('porth neigwl', 'porthneigwl')
-        .replace("hell's mouth", 'porthneigwl')
-        .replace('hells mouth', 'porthneigwl')
-        .replace('port eynon', 'porteynon')
-        .replace('bracelet bay', 'braceletbay')
-        .replace('limeslade bay', 'limeslade')
-        .replace('oxwich bay', 'oxwich')
-        .replace('swansea bay', 'swanseabay')
-        .replace('cold knap', 'coldknap')
-        .replace('col-huw', 'colhuw')
-        .replace('col huw', 'colhuw')
-        .replace('morfa nefyn', 'morfanefyn')
-        .replace('porth nefyn', 'porthnefyn')
-        .replace('morfa dinlle', 'morfadinlle')
-        .replace('tal-y-bont', 'talybont')
-        .replace('taly bont', 'talybont')
-        .replace('silver bay', 'silverbay')
-        .replace('porth dafarch', 'porthdafarch')
-        .replace('church bay', 'churchbay')
-        .replace('traeth lligwy', 'traethlligwy')
-        .replace('kinmel bay', 'kinmelbay')
-        .replace('trearddur bay', 'trearddur')
-        .replace('cemaes bay', 'cemaes')
-        .replace('clarach south', 'clarach')
-        .replace("wiseman's bridge", 'wisemansbridge')
-        .replace('wisemans bridge', 'wisemansbridge')
-        .replace('coppet hall', 'coppethall')
-        .replace('castle beach', 'castlebeach')
-        .replace('tenby south', 'tenbysouth')
-        .replace('porth eirias', 'portheirias')
-        // Remove remaining spaces
-        .replace(/ /g, '');
+      const slug = parseBeachSlug(locationSlot);
+      const conditions = await getConditions(slug, 'swimming');
       
-      const conditions = await getConditions(slug);
       if (!conditions) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `Sorry, I don't have data for ${locationSlot}. Try Barry, Porthcawl, Tenby, Rhossili, or Llangrannog.` }, shouldEndSession: false } });
       
-      let speech = `Here are conditions at ${conditions.location}. `;
-      
-      if (conditions.sewage && conditions.sewage.status === 'warning') {
-        speech = formatSewageForAlexa(conditions.location, conditions.sewage) + ' ';
-      } else {
-        speech += `Sunrise is at ${conditions.sunrise}. `;
-        if (conditions.nextHighTide) { speech += `High tide is at ${conditions.nextHighTide.time}`; if (conditions.nextHighTide.height) speech += ` reaching ${conditions.nextHighTide.height}`; speech += '. '; }
-        if (conditions.seaTemp) speech += `Sea temperature is ${conditions.seaTemp}. `;
-        if (conditions.waveHeight) speech += `Wave height is ${conditions.waveHeight}. `;
-        const sewageNote = formatSewageForAlexa(conditions.location, conditions.sewage);
-        if (sewageNote) speech += sewageNote;
-      }
-      
+      const speech = buildAlexaSpeech(conditions);
       return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: true } });
     }
     
