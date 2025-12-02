@@ -130,27 +130,48 @@ const BEACHES = [
 
 function getDateForTimeSlot(timeSlot) {
   const now = new Date();
+  
+  // Helper to get next occurrence of a day (0=Sunday, 1=Monday, etc.)
+  const getNextDay = (targetDay) => {
+    const today = now.getDay();
+    let daysToAdd = (targetDay - today + 7) % 7;
+    if (daysToAdd === 0) daysToAdd = 7; // If today is the target day, get next week
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToAdd, 8, 0, 0);
+  };
+  
   const dates = {
     now: now,
-    tonight: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0),
+    tonight: (() => {
+      // If it's already past 8pm, "tonight" is invalid, return tomorrow evening instead
+      const tonightDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0);
+      if (now.getHours() >= 20) {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 20, 0, 0);
+      }
+      return tonightDate;
+    })(),
     'tomorrow-am': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 8, 0, 0),
     'tomorrow-pm': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 17, 0, 0),
-    tuesday: (() => {
-      const daysUntilTuesday = (2 - now.getDay() + 7) % 7 || 7;
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilTuesday, 8, 0, 0);
-    })()
+    'day-after-am': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 8, 0, 0)
   };
+  
   return dates[timeSlot] || now;
 }
 
 function getTimeLabel(timeSlot) {
+  const now = new Date();
+  const targetDate = getDateForTimeSlot(timeSlot);
+  
   const labels = {
     now: 'right now',
-    tonight: 'tonight',
+    tonight: now.getHours() >= 20 ? 'tomorrow evening' : 'tonight',
     'tomorrow-am': 'tomorrow morning',
     'tomorrow-pm': 'tomorrow evening',
-    tuesday: 'tuesday'
+    'day-after-am': (() => {
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      return days[targetDate.getDay()];
+    })()
   };
+  
   return labels[timeSlot] || 'right now';
 }
 
@@ -175,7 +196,7 @@ function calculateSunTimes(lat, lon, date) {
 
 function shouldShowSunriseBadge(timeSlot, targetDate) {
   const hour = targetDate.getHours();
-  return (timeSlot === 'now' && hour < 9) || timeSlot === 'tomorrow-am' || timeSlot === 'tuesday';
+  return (timeSlot === 'now' && hour < 9) || timeSlot === 'tomorrow-am' || timeSlot === 'day-after-am';
 }
 
 function shouldShowSunsetBadge(timeSlot, facing, cloudCover) {
@@ -345,6 +366,21 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   let statusText = 'great';
   let parts = [];
   
+  // Helper: Get weather state description
+  const getWeatherState = () => {
+    if (weather.precipitation > 2) return 'rain forecast';
+    if (weather.precipitation > 0.5) return 'light rain expected';
+    if (weather.cloudCover < 20) return 'clear skies';
+    if (weather.cloudCover < 50) return 'partly cloudy';
+    if (weather.cloudCover < 80) return 'mostly cloudy';
+    return 'overcast conditions';
+  };
+  
+  const weatherState = getWeatherState();
+  const isClear = weather.cloudCover < 30;
+  const isMorningForecast = timeSlot === 'tomorrow-am' || timeSlot === 'day-after-am';
+  const isEveningForecast = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
+  
   if (mode === 'swimming') {
     // RED triggers
     if (sewage.status === 'active') {
@@ -387,13 +423,13 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     if (status === 'green') {
       statusText = 'excellent';
       
-      // Opening - set the tone
+      // Opening - set the tone with weather
       if (marine.waveHeight < 0.5) {
-        parts.push('**perfect morning conditions.** calm water like glass');
+        parts.push(`**perfect conditions.** calm water like glass. ${weatherState}`);
       } else if (marine.waveHeight < 1) {
-        parts.push('**lovely conditions ahead.** gentle rolling waves');
+        parts.push(`**lovely conditions ahead.** gentle rolling waves. ${weatherState}`);
       } else {
-        parts.push('**good swimming weather.** moderate swell');
+        parts.push(`**good swimming weather.** moderate swell. ${weatherState}`);
       }
       
       // Wind description
@@ -410,19 +446,29 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push('no sewage alerts');
       }
       
-      // Beach orientation and sun context
+      // Sunrise/Sunset - MUCH more prominent
       if (sun && timeSlot !== 'now') {
         const facingWest = ['west', 'northwest', 'southwest'].includes(beach.facing);
         const facingEast = ['east', 'northeast', 'southeast'].includes(beach.facing);
-        const isMorning = timeSlot === 'tomorrow-am' || timeSlot === 'tuesday';
-        const isEvening = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
         
-        if (facingWest && isEvening && weather.cloudCover < 30) {
-          parts.push(`${beach.facing}-facing beach means you'll catch a beautiful sunset around ${sun.sunset}`);
-        } else if (facingEast && isMorning) {
-          parts.push(`${beach.facing}-facing beach - good for catching the morning sun`);
-        } else if (facingWest) {
-          parts.push(`${beach.facing}-facing beach gets evening light`);
+        // Morning sunrise
+        if (isMorningForecast) {
+          if (isClear) {
+            parts.push(`**spectacular sunrise expected at ${sun.sunrise}** - clear skies mean you'll have the whole show`);
+          } else if (facingEast) {
+            parts.push(`sunrise at ${sun.sunrise} on this ${beach.facing}-facing beach`);
+          }
+        }
+        
+        // Evening sunset
+        if (isEveningForecast) {
+          if (facingWest && isClear) {
+            parts.push(`**beautiful sunset window around ${sun.sunset}** - clear evening on this ${beach.facing}-facing beach. worth staying for`);
+          } else if (facingWest && weather.cloudCover < 50) {
+            parts.push(`${beach.facing}-facing beach gets the evening light. sunset around ${sun.sunset} if the clouds break`);
+          } else if (facingWest) {
+            parts.push(`${beach.facing}-facing beach, though cloudy conditions mean no sunset tonight`);
+          }
         }
       }
       
@@ -459,7 +505,7 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     if (weather.feelsLike < 0) {
       status = 'red';
       statusText = 'dangerous';
-      parts.push(`**severe hypothermia risk.** feels like ${weather.feelsLike}°C after accounting for wind chill. recovery would be extremely difficult in these conditions. wait for a calmer day.`);
+      parts.push(`**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C after accounting for wind chill. recovery would be extremely difficult in these conditions. wait for a calmer day.`);
       return { status, statusText, recommendation: parts.join(' ') };
     }
     
@@ -480,6 +526,22 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       status = 'amber';
       statusText = 'mild';
       parts.push(`**${Math.round(marine.seaTemp)}°C - refreshing but not that winter bite.** some dippers prefer it colder.`);
+    }
+    
+    // Weather state for dippers
+    if (status === 'green') {
+      parts.push(weatherState);
+    }
+    
+    // SUNRISE - Emotional pull for dippers!
+    if (status === 'green' && isMorningForecast && sun) {
+      if (isClear) {
+        parts.push(`**dawn dip with a clear sunrise at ${sun.sunrise}.** this is what it's all about - cold water and watching the day begin`);
+      } else if (weather.cloudCover < 50) {
+        parts.push(`sunrise at ${sun.sunrise} - might break through the clouds for you`);
+      } else {
+        parts.push(`sunrise at ${sun.sunrise}, though cloudy conditions expected`);
+      }
     }
     
     // Rain considerations
@@ -625,7 +687,7 @@ app.get('/dashboard', async (req, res) => {
       return res.status(400).json({ error: 'Invalid mode. Use swimming or dipping.' });
     }
     
-    const validTimes = ['now', 'tonight', 'tomorrow-am', 'tomorrow-pm', 'tuesday'];
+    const validTimes = ['now', 'tonight', 'tomorrow-am', 'tomorrow-pm', 'day-after-am'];
     if (!validTimes.includes(timeSlot)) {
       return res.status(400).json({ error: 'Invalid time. Use: ' + validTimes.join(', ') });
     }
