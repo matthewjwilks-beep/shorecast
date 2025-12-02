@@ -353,7 +353,7 @@ async function fetchTideForTime(beach, targetDate) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   const daysAhead = Math.floor((targetStart - todayStart) / (1000 * 60 * 60 * 24));
-  const duration = Math.max(2, daysAhead + 2); // Fetch extra days to ensure we have enough data
+  const duration = Math.max(2, daysAhead + 2);
   const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${beach.stationId}/TidalEvents?duration=${duration}`;
   
   try {
@@ -364,59 +364,54 @@ async function fetchTideForTime(beach, targetDate) {
     
     if (!data || !Array.isArray(data) || data.length === 0) {
       console.warn(`No tide data for station ${beach.stationId}`);
-      return { type: 'high', time: '—', height: null };
+      return { high: { time: '—', height: null }, low: { time: '—', height: null } };
     }
     
     const targetTime = targetDate.getTime();
     
-    // Sort all events by time
-    const sortedEvents = data
-      .map(event => ({
-        ...event,
-        timestamp: new Date(event.DateTime).getTime()
-      }))
-      .sort((a, b) => a.timestamp - b.timestamp);
+    // Separate high and low tides
+    const highTides = data.filter(e => (e.EventType || '').toLowerCase().includes('high'));
+    const lowTides = data.filter(e => (e.EventType || '').toLowerCase().includes('low'));
     
-    // Find the next tide event AFTER targetTime
-    let nextTide = null;
-    for (const event of sortedEvents) {
-      if (event.timestamp >= targetTime) {
-        nextTide = event;
-        break;
-      }
-    }
-    
-    // If no future tide found, get the closest one
-    if (!nextTide && sortedEvents.length > 0) {
-      // Find closest tide to target time
+    // Find closest tide of each type to target time
+    const findClosest = (tides) => {
+      if (!tides || tides.length === 0) return null;
+      let closest = null;
       let closestDiff = Infinity;
-      for (const event of sortedEvents) {
-        const diff = Math.abs(event.timestamp - targetTime);
+      for (const tide of tides) {
+        const tideTime = new Date(tide.DateTime).getTime();
+        const diff = Math.abs(tideTime - targetTime);
         if (diff < closestDiff) {
           closestDiff = diff;
-          nextTide = event;
+          closest = tide;
         }
       }
-    }
+      return closest;
+    };
     
-    if (nextTide) {
-      const eventType = nextTide.EventType || '';
-      const isHigh = eventType.toLowerCase().includes('high');
-      
+    const closestHigh = findClosest(highTides);
+    const closestLow = findClosest(lowTides);
+    
+    const formatTide = (tide) => {
+      if (!tide) return { time: '—', height: null };
       return {
-        type: isHigh ? 'high' : 'low',
-        time: new Date(nextTide.DateTime).toLocaleTimeString('en-GB', { 
+        time: new Date(tide.DateTime).toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
           minute: '2-digit', 
           timeZone: 'Europe/London' 
         }),
-        height: nextTide.Height
+        height: tide.Height
       };
-    }
+    };
+    
+    return {
+      high: formatTide(closestHigh),
+      low: formatTide(closestLow)
+    };
   } catch (err) {
     console.warn('Tide fetch failed:', err.message);
   }
-  return { type: 'high', time: '—', height: null };
+  return { high: { time: '—', height: null }, low: { time: '—', height: null } };
 }
 
 async function fetchWeatherForTime(beach, targetDate) {
@@ -550,7 +545,7 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push(`**sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach.`);
       }
       if (weather.uvIndex >= 6) parts.push(`UV high (${weather.uvIndex}) - bring sun cream.`);
-      if (tide.time && tide.time !== '—') parts.push(`${tide.type} tide at ${tide.time}.`);
+      if (tide.high.time && tide.high.time !== '—') parts.push(`high tide ${tide.high.time}, low ${tide.low.time}.`);
       if (marine.seaTemp && marine.seaTemp < 12) parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
     }
   } else if (mode === 'dipping') {
@@ -619,7 +614,7 @@ app.get('/conditions/:beach?', async (req, res) => {
     const sunTimes = calculateSunTimes(beach.lat, beach.lon, targetDate);
     const recommendation = generateRecommendation(beach, { marine, weather: { ...weather, feelsLike }, sewage, tide, sun: sunTimes }, mode, 'now');
     
-    res.json({ beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation });
+    res.json({ beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide: { high: tide.high.time, low: tide.low.time }, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -663,7 +658,7 @@ app.get('/dashboard', async (req, res) => {
         name: beach.name, slug: beach.slug, location: beach.location, facing: beach.facing,
         seaTempDisplay: marine.seaTemp ? `${Math.round(marine.seaTemp)}°C` : '—',
         waves: mode === 'swimming' ? { heightDisplay: marine.waveHeight ? `${marine.waveHeight.toFixed(1)}m` : '—' } : null,
-        tide: { type: tide.type, time: tide.time },
+        tide: { high: tide.high.time, low: tide.low.time },
         weather: { airTempDisplay: `${Math.round(weather.airTemp)}°C`, feelsLikeDisplay: `${Math.round(feelsLike)}°C`, uvIndex: weather.uvIndex },
         sewage, sun: { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, showSunriseBadge, showSunsetBadge },
         alerts: { jellyfish: false, jellyfishSpecies: null, recentRainfall: weather.precipitation > 5, bathingWaterQuality: 'good' },
@@ -710,7 +705,7 @@ app.post('/alexa', async (req, res) => {
       if (!weatherData) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Sorry, couldn\'t fetch conditions.' }, shouldEndSession: true } });
       
       const { marine } = weatherData;
-      const speech = `${beach.name}. Water ${Math.round(marine.seaTemp)} degrees. Waves ${marine.waveHeight.toFixed(1)} meters. ${tide.type} tide at ${tide.time}. ${sewage.status === 'clear' ? 'No sewage alerts.' : 'Check sewage status.'}`;
+      const speech = `${beach.name}. Water ${Math.round(marine.seaTemp)} degrees. Waves ${marine.waveHeight.toFixed(1)} meters. High tide at ${tide.high.time}, low tide at ${tide.low.time}. ${sewage.status === 'clear' ? 'No sewage alerts.' : 'Check sewage status.'}`;
       return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: true } });
     }
     res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Sorry, didn\'t understand.' }, shouldEndSession: true } });
