@@ -868,7 +868,24 @@ app.post('/alexa', async (req, res) => {
     });
   }
 });
-
+app.get('/debug-tides/:station', async (req, res) => {
+  const stationId = req.params.station;
+  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${stationId}/TidalEvents?duration=2`;
+  
+  try {
+    const response = await fetch(url, {
+      headers: { 'Ocp-Apim-Subscription-Key': process.env.ADMIRALTY_API_KEY }
+    });
+    const data = await response.json();
+    res.json({
+      station: stationId,
+      requestedAt: new Date().toISOString(),
+      events: data
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Shorecast backend running on port ${PORT}`);
 });
