@@ -1,9 +1,10 @@
 // ============================================
 // SHORECAST BACKEND - Complete index.js
 // ============================================
-// Last Updated: 1 December 2025
+// Last Updated: 2 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
+// FIXED: Tide times now correctly query future dates
 
 const express = require('express');
 const cors = require('cors');
@@ -15,11 +16,9 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   
-  // Handle preflight OPTIONS requests
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
-  
   next();
 });
 
@@ -131,18 +130,9 @@ const BEACHES = [
 function getDateForTimeSlot(timeSlot) {
   const now = new Date();
   
-  // Helper to get next occurrence of a day (0=Sunday, 1=Monday, etc.)
-  const getNextDay = (targetDay) => {
-    const today = now.getDay();
-    let daysToAdd = (targetDay - today + 7) % 7;
-    if (daysToAdd === 0) daysToAdd = 7; // If today is the target day, get next week
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToAdd, 8, 0, 0);
-  };
-  
   const dates = {
     now: now,
     tonight: (() => {
-      // If it's already past 8pm, "tonight" is invalid, return tomorrow evening instead
       const tonightDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0);
       if (now.getHours() >= 20) {
         return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 20, 0, 0);
@@ -160,16 +150,14 @@ function getDateForTimeSlot(timeSlot) {
 function getTimeLabel(timeSlot) {
   const now = new Date();
   const targetDate = getDateForTimeSlot(timeSlot);
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
   const labels = {
     now: 'right now',
     tonight: now.getHours() >= 20 ? 'tomorrow evening' : 'tonight',
     'tomorrow-am': 'tomorrow morning',
     'tomorrow-pm': 'tomorrow evening',
-    'day-after-am': (() => {
-      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      return days[targetDate.getDay()];
-    })()
+    'day-after-am': `${days[targetDate.getDay()]} morning`  // FIXED: Now shows "thursday morning" not just "thursday"
   };
   
   return labels[timeSlot] || 'right now';
@@ -216,9 +204,18 @@ function calculateFeelsLike(airTemp, windSpeed) {
 // API FETCH FUNCTIONS
 // ============================================
 
+// FIXED: Now correctly fetches tide data for future dates
 async function fetchTideForTime(beach, targetDate) {
-  const dateStr = targetDate.toISOString().split('T')[0];
-  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${beach.stationId}/TidalEvents?duration=1`;
+  // Calculate how many days ahead we need (0 = today, 1 = tomorrow, etc.)
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const daysAhead = Math.floor((targetStart - todayStart) / (1000 * 60 * 60 * 24));
+  
+  // Request enough days of data (at least 1, up to 4 to cover day-after-tomorrow)
+  const duration = Math.max(1, daysAhead + 1);
+  
+  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${beach.stationId}/TidalEvents?duration=${duration}`;
   
   try {
     const response = await fetch(url, {
@@ -226,27 +223,52 @@ async function fetchTideForTime(beach, targetDate) {
     });
     const data = await response.json();
     
-    const targetTime = targetDate.getTime();
-    let closestTide = null;
-    let minDiff = Infinity;
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.warn(`No tide data returned for station ${beach.stationId}`);
+      return { type: 'high', time: '—', height: null };
+    }
     
+    const targetTime = targetDate.getTime();
+    
+    // Find the tide event closest to (but preferably just after) the target time
+    // This gives users the "next tide" from their chosen time slot
+    let bestTide = null;
+    let bestDiff = Infinity;
+    
+    // First pass: find the next tide event AFTER the target time
     for (const event of data) {
       const eventTime = new Date(event.DateTime).getTime();
-      const diff = Math.abs(eventTime - targetTime);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestTide = event;
+      const diff = eventTime - targetTime;
+      
+      // Prefer events that are after target time but within 12 hours
+      if (diff >= 0 && diff < bestDiff && diff < 12 * 60 * 60 * 1000) {
+        bestDiff = diff;
+        bestTide = event;
       }
     }
     
-    if (closestTide) {
+    // If no future event found, find the closest one overall
+    if (!bestTide) {
+      for (const event of data) {
+        const eventTime = new Date(event.DateTime).getTime();
+        const diff = Math.abs(eventTime - targetTime);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestTide = event;
+        }
+      }
+    }
+    
+    if (bestTide) {
+      const eventType = bestTide.EventType || 'HighWater';
       return {
-        type: closestTide.EventType.toLowerCase(),
-        time: new Date(closestTide.DateTime).toLocaleTimeString('en-GB', { 
+        type: eventType.toLowerCase().includes('high') ? 'high' : 'low',
+        time: new Date(bestTide.DateTime).toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
-          minute: '2-digit' 
+          minute: '2-digit',
+          timeZone: 'Europe/London'
         }),
-        height: closestTide.Height
+        height: bestTide.Height
       };
     }
   } catch (err) {
@@ -366,7 +388,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   let statusText = 'great';
   let parts = [];
   
-  // Helper: Get weather state description
   const getWeatherState = () => {
     if (weather.precipitation > 2) return 'rain forecast';
     if (weather.precipitation > 0.5) return 'light rain expected';
@@ -382,7 +403,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   const isEveningForecast = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
   
   if (mode === 'swimming') {
-    // RED triggers
     if (sewage.status === 'active') {
       status = 'red';
       statusText = 'avoid';
@@ -400,7 +420,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       return { status, statusText, recommendation: parts.join(' ') };
     }
     
-    // AMBER triggers
     if (sewage.status === 'recent') {
       status = 'amber';
       statusText = 'check';
@@ -419,11 +438,9 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       parts.push(`**strong winds** at ${Math.round(weather.windSpeed)}km/h. could be challenging, especially heading back to shore.`);
     }
     
-    // GREEN - Build a rich, natural description
     if (status === 'green') {
       statusText = 'excellent';
       
-      // Opening - set the tone with weather
       if (marine.waveHeight < 0.5) {
         parts.push(`**perfect conditions.** calm water like glass. ${weatherState}`);
       } else if (marine.waveHeight < 1) {
@@ -432,7 +449,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push(`**good swimming weather.** moderate swell. ${weatherState}`);
       }
       
-      // Wind description
       if (weather.windSpeed < 10) {
         parts.push('barely any breeze');
       } else if (weather.windSpeed < 20) {
@@ -441,17 +457,14 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push('moderate wind');
       }
       
-      // Sewage status
       if (sewage.status === 'clear') {
         parts.push('no sewage alerts');
       }
       
-      // Sunrise/Sunset - MUCH more prominent
       if (sun && timeSlot !== 'now') {
         const facingWest = ['west', 'northwest', 'southwest'].includes(beach.facing);
         const facingEast = ['east', 'northeast', 'southeast'].includes(beach.facing);
         
-        // Morning sunrise
         if (isMorningForecast) {
           if (isClear) {
             parts.push(`**spectacular sunrise expected at ${sun.sunrise}** - clear skies mean you'll have the whole show`);
@@ -460,7 +473,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
           }
         }
         
-        // Evening sunset
         if (isEveningForecast) {
           if (facingWest && isClear) {
             parts.push(`**beautiful sunset window around ${sun.sunset}** - clear evening on this ${beach.facing}-facing beach. worth staying for`);
@@ -472,20 +484,17 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         }
       }
       
-      // UV warnings
       if (weather.uvIndex >= 6) {
         parts.push(`UV high (${weather.uvIndex}) - definitely bring sun cream`);
       } else if (weather.uvIndex >= 3) {
         parts.push(`UV moderate (${weather.uvIndex}) - sun cream recommended if you're staying out`);
       }
       
-      // Tide timing
-      if (tide.type && tide.time) {
-        const tideText = tide.type.includes('high') ? 'high tide' : 'low tide';
+      if (tide.type && tide.time && tide.time !== '—') {
+        const tideText = tide.type === 'high' ? 'high tide' : 'low tide';
         parts.push(`${tideText} at ${tide.time}`);
       }
       
-      // Temperature note for cold water
       if (marine.seaTemp < 12) {
         parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring a warm layer for afterwards`);
       } else if (marine.seaTemp >= 16) {
@@ -494,7 +503,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     }
     
   } else if (mode === 'dipping') {
-    // RED triggers for dipping
     if (sewage.status === 'active' || sewage.status === 'recent') {
       status = 'red';
       statusText = 'wait';
@@ -509,7 +517,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       return { status, statusText, recommendation: parts.join(' ') };
     }
     
-    // Temperature assessment (inverted - colder is better)
     if (marine.seaTemp >= 13) {
       status = 'amber';
       statusText = 'mild';
@@ -528,12 +535,10 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       parts.push(`**${Math.round(marine.seaTemp)}°C - refreshing but not that winter bite.** some dippers prefer it colder.`);
     }
     
-    // Weather state for dippers
     if (status === 'green') {
       parts.push(weatherState);
     }
     
-    // SUNRISE - Emotional pull for dippers!
     if (status === 'green' && isMorningForecast && sun) {
       if (isClear) {
         parts.push(`**dawn dip with a clear sunrise at ${sun.sunrise}.** this is what it's all about - cold water and watching the day begin`);
@@ -544,32 +549,27 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       }
     }
     
-    // Rain considerations
     if (weather.precipitation > 0.5) {
       if (status === 'green') status = 'amber';
       parts.push('rain forecast - changing afterwards will be uncomfortable. maybe bring an extra towel and warm layers.');
     }
     
-    // Recovery conditions
     if (status === 'green' && weather.feelsLike < 5) {
       parts.push(`feels like ${Math.round(weather.feelsLike)}°C outside - definitely bring warm layers for recovery. hot drink recommended.`);
     } else if (status === 'green' && weather.feelsLike >= 10) {
       parts.push(`mild ${Math.round(weather.feelsLike)}°C air temp makes for comfortable changing.`);
     }
     
-    // Sewage status for green conditions
     if (status === 'green' && sewage.status === 'clear') {
       parts.push('water quality clear.');
     }
     
-    // Wind for dipping
     if (status === 'green' && weather.windSpeed > 25) {
       parts.push('breezy conditions - find shelter for changing.');
     } else if (status === 'green' && weather.windSpeed < 10) {
       parts.push('calm conditions for getting changed.');
     }
     
-    // Safe immersion time guidance
     if (status === 'green' && marine.seaTemp <= 10) {
       if (marine.seaTemp <= 5) {
         parts.push('safe time: 2-3 minutes for most people.');
@@ -581,23 +581,15 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     }
   }
   
-  // Join with proper punctuation
   let recommendation = parts.join('. ');
-  
-  // Clean up punctuation
   recommendation = recommendation.replace(/\.\./g, '.');
   recommendation = recommendation.replace(/\. \./g, '.');
   
-  // Ensure it ends with a period
   if (!recommendation.endsWith('.')) {
     recommendation += '.';
   }
   
-  return {
-    status,
-    statusText,
-    recommendation
-  };
+  return { status, statusText, recommendation };
 }
 
 // ============================================
@@ -648,10 +640,7 @@ app.get('/conditions/:beach?', async (req, res) => {
       weather: { ...weather, feelsLike }, 
       sewage, 
       tide,
-      sun: {
-        sunrise: sunTimes.sunrise,
-        sunset: sunTimes.sunset
-      }
+      sun: { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset }
     }, mode, 'now');
     
     res.json({
@@ -719,10 +708,7 @@ app.get('/dashboard', async (req, res) => {
           weather: { ...weather, feelsLike },
           sewage,
           tide,
-          sun: {
-            sunrise: sunTimes.sunrise,
-            sunset: sunTimes.sunset
-          }
+          sun: { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset }
         }, mode, timeSlot);
         
         return {
@@ -778,10 +764,7 @@ app.get('/dashboard', async (req, res) => {
     
   } catch (error) {
     console.error('Dashboard error:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch dashboard data',
-      details: error.message 
-    });
+    res.status(500).json({ error: 'Failed to fetch dashboard data', details: error.message });
   }
 });
 
@@ -793,10 +776,7 @@ app.post('/alexa', async (req, res) => {
       return res.json({
         version: '1.0',
         response: {
-          outputSpeech: {
-            type: 'PlainText',
-            text: 'Welcome to Shorecast. Ask me about any beach conditions.'
-          },
+          outputSpeech: { type: 'PlainText', text: 'Welcome to Shorecast. Ask me about any beach conditions.' },
           shouldEndSession: false
         }
       });
@@ -824,10 +804,7 @@ app.post('/alexa', async (req, res) => {
           return res.json({
             version: '1.0',
             response: {
-              outputSpeech: { 
-                type: 'PlainText', 
-                text: `Sorry, I don't have data for ${location} yet. Try asking about Barry Island, Rhossili, or Tenby.`
-              },
+              outputSpeech: { type: 'PlainText', text: `Sorry, I don't have data for ${location} yet. Try asking about Barry Island, Rhossili, or Tenby.` },
               shouldEndSession: true
             }
           });
@@ -853,14 +830,8 @@ app.post('/alexa', async (req, res) => {
         const { marine, weather } = weatherData;
         const sunTimes = calculateSunTimes(beach.lat, beach.lon, targetDate);
         const recommendation = generateRecommendation(beach, {
-          marine, 
-          weather, 
-          sewage, 
-          tide,
-          sun: {
-            sunrise: sunTimes.sunrise,
-            sunset: sunTimes.sunset
-          }
+          marine, weather, sewage, tide,
+          sun: { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset }
         }, 'swimming', 'now');
         
         const speech = `${beach.name}. Water temperature ${Math.round(marine.seaTemp)} degrees. ` +
