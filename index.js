@@ -4,7 +4,7 @@
 // Last Updated: 2 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Corrected tidal stations + Dynamic time slots
+// UPDATED: Fixed tide selection (high AND low), added debug endpoint
 
 const express = require('express');
 const cors = require('cors');
@@ -255,7 +255,6 @@ function getAvailableTimeSlots() {
   
   const nowTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
   
-  // Evening (6pm+): skip "tonight" - "right now" IS tonight
   if (hour >= 18) {
     return [
       { id: 'now', label: 'right now', time: nowTime },
@@ -265,7 +264,6 @@ function getAvailableTimeSlots() {
     ];
   }
   
-  // Daytime: show all 5 slots
   return [
     { id: 'now', label: 'right now', time: nowTime },
     { id: 'tonight', label: 'tonight', time: '20:00' },
@@ -286,8 +284,6 @@ function getDateForTimeSlot(timeSlot) {
   const dates = {
     now: now,
     tonight: (() => {
-      // If evening, "tonight" shouldn't be used (filtered out by getAvailableTimeSlots)
-      // But if called anyway, return tonight at 8pm
       const tonightDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0);
       if (hour >= 20) {
         return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 20, 0, 0);
@@ -302,7 +298,6 @@ function getDateForTimeSlot(timeSlot) {
 }
 
 function getTimeLabel(timeSlot) {
-  const now = new Date();
   const targetDate = getDateForTimeSlot(timeSlot);
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const labels = {
@@ -358,7 +353,7 @@ async function fetchTideForTime(beach, targetDate) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
   const daysAhead = Math.floor((targetStart - todayStart) / (1000 * 60 * 60 * 24));
-  const duration = Math.max(1, daysAhead + 1);
+  const duration = Math.max(2, daysAhead + 2); // Fetch extra days to ensure we have enough data
   const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${beach.stationId}/TidalEvents?duration=${duration}`;
   
   try {
@@ -373,35 +368,49 @@ async function fetchTideForTime(beach, targetDate) {
     }
     
     const targetTime = targetDate.getTime();
-    let bestTide = null;
-    let bestDiff = Infinity;
     
-    for (const event of data) {
-      const eventTime = new Date(event.DateTime).getTime();
-      const diff = eventTime - targetTime;
-      if (diff >= 0 && diff < bestDiff && diff < 12 * 60 * 60 * 1000) {
-        bestDiff = diff;
-        bestTide = event;
+    // Sort all events by time
+    const sortedEvents = data
+      .map(event => ({
+        ...event,
+        timestamp: new Date(event.DateTime).getTime()
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Find the next tide event AFTER targetTime
+    let nextTide = null;
+    for (const event of sortedEvents) {
+      if (event.timestamp >= targetTime) {
+        nextTide = event;
+        break;
       }
     }
     
-    if (!bestTide) {
-      for (const event of data) {
-        const eventTime = new Date(event.DateTime).getTime();
-        const diff = Math.abs(eventTime - targetTime);
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestTide = event;
+    // If no future tide found, get the closest one
+    if (!nextTide && sortedEvents.length > 0) {
+      // Find closest tide to target time
+      let closestDiff = Infinity;
+      for (const event of sortedEvents) {
+        const diff = Math.abs(event.timestamp - targetTime);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          nextTide = event;
         }
       }
     }
     
-    if (bestTide) {
-      const eventType = bestTide.EventType || 'HighWater';
+    if (nextTide) {
+      const eventType = nextTide.EventType || '';
+      const isHigh = eventType.toLowerCase().includes('high');
+      
       return {
-        type: eventType.toLowerCase().includes('high') ? 'high' : 'low',
-        time: new Date(bestTide.DateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }),
-        height: bestTide.Height
+        type: isHigh ? 'high' : 'low',
+        time: new Date(nextTide.DateTime).toLocaleTimeString('en-GB', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          timeZone: 'Europe/London' 
+        }),
+        height: nextTide.Height
       };
     }
   } catch (err) {
@@ -710,7 +719,7 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
-// Debug endpoint
+// Debug endpoint for sewage
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -733,6 +742,65 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     })).sort((a, b) => a.distance - b.distance);
     
     res.json({ beach: beach.name, beachLat: beach.lat, beachLon: beach.lon, totalOutfalls: data.features?.length, nearbyOutfalls });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// NEW: Debug endpoint for tides - shows raw API data
+app.get('/debug-tides/:beach', async (req, res) => {
+  const beach = BEACHES.find(b => b.slug === req.params.beach);
+  if (!beach) return res.status(404).json({ error: 'Beach not found' });
+  
+  const timeSlot = req.query.time || 'now';
+  const targetDate = getDateForTimeSlot(timeSlot);
+  
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const daysAhead = Math.floor((targetStart - todayStart) / (1000 * 60 * 60 * 24));
+  const duration = Math.max(2, daysAhead + 2);
+  
+  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${beach.stationId}/TidalEvents?duration=${duration}`;
+  
+  try {
+    const response = await fetch(url, {
+      headers: { 'Ocp-Apim-Subscription-Key': process.env.ADMIRALTY_API_KEY }
+    });
+    const data = await response.json();
+    
+    // Process and sort events
+    const events = (data || []).map(event => ({
+      type: event.EventType,
+      dateTime: event.DateTime,
+      localTime: new Date(event.DateTime).toLocaleString('en-GB', { timeZone: 'Europe/London' }),
+      height: event.Height,
+      isAfterTarget: new Date(event.DateTime).getTime() >= targetDate.getTime()
+    })).sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+    
+    // Count by type
+    const highCount = events.filter(e => e.type === 'HighWater').length;
+    const lowCount = events.filter(e => e.type === 'LowWater').length;
+    
+    // Find what we'd select
+    const selected = await fetchTideForTime(beach, targetDate);
+    
+    res.json({
+      beach: beach.name,
+      stationId: beach.stationId,
+      timeSlot,
+      targetDate: targetDate.toISOString(),
+      targetDateLocal: targetDate.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
+      duration,
+      apiUrl: url,
+      summary: {
+        totalEvents: events.length,
+        highWaterEvents: highCount,
+        lowWaterEvents: lowCount
+      },
+      selectedTide: selected,
+      allEvents: events
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
