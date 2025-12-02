@@ -868,24 +868,100 @@ app.post('/alexa', async (req, res) => {
     });
   }
 });
+
+// ============================================
+// DEBUG ENDPOINT - Remove after testing
+// ============================================
+
 app.get('/debug-tides/:station', async (req, res) => {
   const stationId = req.params.station;
-  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${stationId}/TidalEvents?duration=2`;
+  const timeSlot = req.query.time || 'now';
+  
+  // Get target date same way dashboard does
+  const now = new Date();
+  const dates = {
+    now: now,
+    tonight: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0),
+    'tomorrow-am': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 8, 0, 0),
+    'tomorrow-pm': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 17, 0, 0),
+    'day-after-am': new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 8, 0, 0)
+  };
+  const targetDate = dates[timeSlot] || now;
+  
+  // Calculate duration same way
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const daysAhead = Math.floor((targetStart - todayStart) / (1000 * 60 * 60 * 24));
+  const duration = Math.max(1, daysAhead + 1);
+  
+  const url = `https://admiraltyapi.azure-api.net/uktidalapi/api/V1/Stations/${stationId}/TidalEvents?duration=${duration}`;
   
   try {
     const response = await fetch(url, {
       headers: { 'Ocp-Apim-Subscription-Key': process.env.ADMIRALTY_API_KEY }
     });
     const data = await response.json();
+    
+    // Find best tide same way as main function
+    const targetTime = targetDate.getTime();
+    let bestTide = null;
+    let bestDiff = Infinity;
+    
+    const analysis = data.map(event => {
+      const eventTime = new Date(event.DateTime).getTime();
+      const diff = eventTime - targetTime;
+      const diffHours = (diff / 3600000).toFixed(2);
+      return {
+        type: event.EventType,
+        dateTime: event.DateTime,
+        diffFromTargetHours: diffHours,
+        isAfterTarget: diff >= 0,
+        isWithin12Hours: diff >= 0 && diff < 12 * 60 * 60 * 1000
+      };
+    });
+    
+    // First pass - find next event after target within 12 hours
+    for (const event of data) {
+      const eventTime = new Date(event.DateTime).getTime();
+      const diff = eventTime - targetTime;
+      if (diff >= 0 && diff < bestDiff && diff < 12 * 60 * 60 * 1000) {
+        bestDiff = diff;
+        bestTide = event;
+      }
+    }
+    
+    // Fallback if nothing found
+    if (!bestTide) {
+      for (const event of data) {
+        const eventTime = new Date(event.DateTime).getTime();
+        const diff = Math.abs(eventTime - targetTime);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestTide = event;
+        }
+      }
+    }
+    
     res.json({
-      station: stationId,
-      requestedAt: new Date().toISOString(),
-      events: data
+      timeSlot,
+      serverNow: now.toISOString(),
+      targetDate: targetDate.toISOString(),
+      targetTimeMs: targetTime,
+      daysAhead,
+      duration,
+      apiUrl: url,
+      eventsAnalysis: analysis,
+      selectedTide: bestTide ? {
+        type: bestTide.EventType,
+        dateTime: bestTide.DateTime,
+        height: bestTide.Height
+      } : null
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Shorecast backend running on port ${PORT}`);
 });
