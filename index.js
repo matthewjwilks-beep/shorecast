@@ -723,86 +723,88 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     beach: beach.name,
     beachLat: beach.lat,
     beachLon: beach.lon,
-    apiStatus: null,
-    apiError: null,
-    rawDataSample: null,
-    totalOutfalls: 0,
-    nearbyOutfalls: []
+    tests: []
   };
   
-  try {
-    const url = `https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true`;
-    
-    const response = await fetch(url);
-    result.apiStatus = response.status;
-    
-    if (!response.ok) {
-      result.apiError = `HTTP ${response.status}: ${response.statusText}`;
-      return res.json(result);
+  // Test multiple possible URLs
+  const urlsToTry = [
+    {
+      name: 'Storm_Overflows_WW (original)',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true'
+    },
+    {
+      name: 'Storm_Overflows_WW - service info',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer?f=json'
+    },
+    {
+      name: 'List all services',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services?f=json'
+    },
+    {
+      name: 'Welsh Water EDM (alternative)',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/EDM_Spills/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
+    },
+    {
+      name: 'Welsh Water Storm Overflows v2',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflow_Alerts/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
+    },
+    {
+      name: 'Welsh Water CSO',
+      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/CSO_Alerts/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
     }
+  ];
+  
+  for (const test of urlsToTry) {
+    const testResult = {
+      name: test.name,
+      url: test.url,
+      status: null,
+      success: false,
+      featureCount: null,
+      error: null,
+      sampleData: null
+    };
     
-    const data = await response.json();
-    
-    // Check if we got an error from the API
-    if (data.error) {
-      result.apiError = data.error;
-      return res.json(result);
-    }
-    
-    // Check if features exist
-    if (!data.features) {
-      result.apiError = 'No features array in response';
-      result.rawDataSample = JSON.stringify(data).substring(0, 500);
-      return res.json(result);
-    }
-    
-    result.totalOutfalls = data.features.length;
-    
-    // Show a sample of what the data looks like
-    if (data.features.length > 0) {
-      const sample = data.features[0];
-      result.rawDataSample = {
-        attributeKeys: Object.keys(sample.attributes || {}),
-        geometryType: sample.geometry ? 'present' : 'missing',
-        sampleAttributes: sample.attributes
-      };
-    }
-    
-    // Find nearby outfalls - check both X/Y and geometry.x/geometry.y
-    result.nearbyOutfalls = data.features.filter(f => {
-      // Try attributes.Y/X first (some ArcGIS services use this)
-      let lat = f.attributes?.Y || f.attributes?.y || f.attributes?.Latitude || f.attributes?.latitude;
-      let lon = f.attributes?.X || f.attributes?.x || f.attributes?.Longitude || f.attributes?.longitude;
+    try {
+      const response = await fetch(test.url);
+      testResult.status = response.status;
       
-      // Fall back to geometry if available
-      if ((!lat || !lon) && f.geometry) {
-        lat = f.geometry.y;
-        lon = f.geometry.x;
+      const data = await response.json();
+      
+      if (data.error) {
+        testResult.error = data.error.message || JSON.stringify(data.error);
+      } else if (data.features) {
+        testResult.success = true;
+        testResult.featureCount = data.features.length;
+        if (data.features.length > 0) {
+          testResult.sampleData = {
+            attributeKeys: Object.keys(data.features[0].attributes || {}),
+            firstRecord: data.features[0].attributes
+          };
+        }
+      } else if (data.services) {
+        testResult.success = true;
+        testResult.sampleData = {
+          serviceCount: data.services.length,
+          serviceNames: data.services.map(s => s.name).slice(0, 20)
+        };
+      } else if (data.layers) {
+        testResult.success = true;
+        testResult.sampleData = {
+          layerCount: data.layers.length,
+          layers: data.layers.map(l => ({ id: l.id, name: l.name }))
+        };
+      } else {
+        testResult.sampleData = JSON.stringify(data).substring(0, 300);
       }
-      
-      if (!lat || !lon) return false;
-      
-      const dist = Math.sqrt(Math.pow(lat - beach.lat, 2) + Math.pow(lon - beach.lon, 2));
-      return dist < 0.2;
-    }).map(f => {
-      let lat = f.attributes?.Y || f.attributes?.y || f.attributes?.Latitude || f.geometry?.y;
-      let lon = f.attributes?.X || f.attributes?.x || f.attributes?.Longitude || f.geometry?.x;
-      
-      return {
-        name: f.attributes?.SiteName || f.attributes?.Name || f.attributes?.SITE_NAME || f.attributes?.name || 'Unknown',
-        lat,
-        lon,
-        distance: Math.sqrt(Math.pow(lat - beach.lat, 2) + Math.pow(lon - beach.lon, 2)).toFixed(4),
-        status: f.attributes?.AlertStatus || f.attributes?.Status || f.attributes?.ALERT_STATUS || 'Unknown',
-        allAttributes: f.attributes
-      };
-    }).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    } catch (err) {
+      testResult.error = err.message;
+    }
     
-    res.json(result);
-  } catch (err) {
-    result.apiError = err.message;
-    res.json(result);
+    result.tests.push(testResult);
   }
+  
+  res.json(result);
 });
 
 // NEW: Debug endpoint for tides - shows raw API data
