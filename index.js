@@ -1,10 +1,10 @@
 // ============================================
 // SHORECAST BACKEND - Complete index.js
 // ============================================
-// Last Updated: 2 December 2025
+// Last Updated: 3 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Fixed tide selection (high AND low), added debug endpoint
+// UPDATED: New Welsh Water sewage endpoint (services3.arcgis.com)
 
 const express = require('express');
 const cors = require('cors');
@@ -113,7 +113,7 @@ const BEACHES = [
   { slug: 'pembrey', name: 'Pembrey', location: 'Carmarthenshire', lat: 51.692, lon: -4.269, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
   { slug: 'burry-port', name: 'Burry Port', location: 'Carmarthenshire', lat: 51.683, lon: -4.250, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
 
-  // GOWER PENINSULA - CORRECTED
+  // GOWER PENINSULA
   { slug: 'rhossili', name: 'Rhossili', location: 'Gower Peninsula', lat: 51.568, lon: -4.291, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
   { slug: 'llangennith', name: 'Llangennith', location: 'Gower Peninsula', lat: 51.594, lon: -4.295, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
   { slug: 'blue-pool', name: 'Blue Pool Bay', location: 'Gower Peninsula', lat: 51.589, lon: -4.274, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
@@ -369,11 +369,9 @@ async function fetchTideForTime(beach, targetDate) {
     
     const targetTime = targetDate.getTime();
     
-    // Separate high and low tides
     const highTides = data.filter(e => (e.EventType || '').toLowerCase().includes('high'));
     const lowTides = data.filter(e => (e.EventType || '').toLowerCase().includes('low'));
     
-    // Find closest tide of each type to target time
     const findClosest = (tides) => {
       if (!tides || tides.length === 0) return null;
       let closest = null;
@@ -449,36 +447,125 @@ async function fetchWeatherForTime(beach, targetDate) {
   }
 }
 
+// ============================================
+// SEWAGE STATUS FETCH - UPDATED 3 DEC 2025
+// ============================================
+// Uses new Welsh Water endpoint (services3.arcgis.com)
+// Old endpoint (services1.arcgis.com/LguJ1f6vTrDEMDUy) is broken
+
 async function fetchSewageStatus(beach) {
   try {
     if (beach.company === 'welsh-water') {
-      const url = `https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=false`;
+      // New Welsh Water endpoint - Spill_Prod__view service
+      // Org: KLNF7YxtENPLYVey on services3.arcgis.com
+      const baseUrl = 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query';
+      
+      // Spatial query - find overflows within 5km of beach coordinates
+      const params = new URLSearchParams({
+        f: 'json',
+        where: '1=1',
+        outFields: 'status,start_date_time_discharge,stop_date_time_discharge,asset_name,Linked_Bathing_Water',
+        geometry: `${beach.lon},${beach.lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        distance: '5000',
+        units: 'esriSRUnit_Meter',
+        returnGeometry: 'true',
+        outSR: '4326'
+      });
+      
+      const url = `${baseUrl}?${params.toString()}`;
       const response = await fetch(url);
       const data = await response.json();
       
-      const nearby = data.features?.find(f => {
-        const dist = Math.sqrt(Math.pow(f.attributes.Y - beach.lat, 2) + Math.pow(f.attributes.X - beach.lon, 2));
-        return dist < 0.05;
-      });
+      // Handle API errors
+      if (data.error) {
+        console.warn('Welsh Water API error:', data.error.message);
+        return { status: 'unknown', icon: '?', source: 'Welsh Water' };
+      }
       
-      if (nearby) {
-        const status = nearby.attributes.AlertStatus || 'Not Discharging';
-        if (status.includes('Discharging')) {
-          return { status: 'active', icon: '✗', source: 'Welsh Water' };
+      // No overflows found within 5km - assume clear
+      if (!data.features || data.features.length === 0) {
+        return { status: 'clear', icon: '✓', source: 'Welsh Water' };
+      }
+      
+      // Check all nearby overflows for active or recent discharges
+      let hasRecent = false;
+      let recentAsset = null;
+      let recentHours = null;
+      
+      for (const feature of data.features) {
+        const attrs = feature.attributes;
+        const statusText = (attrs.status || '').toLowerCase();
+        
+        // Check for active discharge
+        const isActive = (
+          statusText.includes('discharg') || 
+          statusText.includes('operat') || 
+          statusText.includes('spill')
+        ) && !statusText.includes('not ') && !statusText.includes('offline');
+        
+        if (isActive) {
+          return { 
+            status: 'active', 
+            icon: '✗', 
+            source: 'Welsh Water',
+            assetName: attrs.asset_name || null
+          };
         }
-        const lastDischarge = nearby.attributes.StopDateTime;
-        if (lastDischarge) {
-          const hoursSince = (Date.now() - new Date(lastDischarge)) / 3600000;
-          if (hoursSince < 48) {
-            return { status: 'recent', icon: '!', source: 'Welsh Water' };
+        
+        // Check for "recently" in status text
+        if (statusText.includes('recent')) {
+          hasRecent = true;
+          recentAsset = attrs.asset_name;
+        }
+        
+        // Check stop_date_time_discharge for recent discharges (within 48 hours)
+        const stopTime = attrs.stop_date_time_discharge;
+        if (stopTime) {
+          const stopDate = new Date(stopTime);
+          if (!isNaN(stopDate.getTime()) && stopDate <= new Date()) {
+            const hoursSince = (Date.now() - stopDate.getTime()) / 3600000;
+            if (hoursSince >= 0 && hoursSince < 48) {
+              hasRecent = true;
+              recentAsset = attrs.asset_name;
+              recentHours = Math.round(hoursSince);
+            }
           }
         }
       }
+      
+      if (hasRecent) {
+        return { 
+          status: 'recent', 
+          icon: '!', 
+          source: 'Welsh Water',
+          assetName: recentAsset,
+          hoursSinceDischarge: recentHours
+        };
+      }
+      
       return { status: 'clear', icon: '✓', source: 'Welsh Water' };
     }
+    
+    // English water companies - NSOH integration pending
+    if (beach.company === 'south-west-water') {
+      return { status: 'clear', icon: '✓', source: 'South West Water', note: 'NSOH integration pending' };
+    }
+    
+    if (beach.company === 'southern-water') {
+      return { status: 'clear', icon: '✓', source: 'Southern Water', note: 'NSOH integration pending' };
+    }
+    
+    if (beach.company === 'wessex-water') {
+      return { status: 'clear', icon: '✓', source: 'Wessex Water', note: 'NSOH integration pending' };
+    }
+    
     return { status: 'clear', icon: '✓', source: beach.companyName };
+    
   } catch (err) {
-    console.warn('Sewage fetch failed:', err.message);
+    console.warn('Sewage fetch failed for', beach.name, ':', err.message);
     return { status: 'unknown', icon: '?', source: beach.companyName };
   }
 }
@@ -714,7 +801,7 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
-// Debug endpoint for sewage
+// Debug endpoint for sewage - updated to test new endpoint
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -723,52 +810,40 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     beach: beach.name,
     beachLat: beach.lat,
     beachLon: beach.lon,
+    company: beach.company,
     tests: []
   };
   
-  // Test multiple possible URLs
-  const urlsToTry = [
-    {
-      name: 'Storm_Overflows_WW (original)',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true'
-    },
-    {
-      name: 'Storm_Overflows_WW - service info',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflows_WW/FeatureServer?f=json'
-    },
-    {
-      name: 'List all services',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services?f=json'
-    },
-    {
-      name: 'Welsh Water EDM (alternative)',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/EDM_Spills/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
-    },
-    {
-      name: 'Welsh Water Storm Overflows v2',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/Storm_Overflow_Alerts/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
-    },
-    {
-      name: 'Welsh Water CSO',
-      url: 'https://services1.arcgis.com/LguJ1f6vTrDEMDUy/arcgis/rest/services/CSO_Alerts/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
-    }
-  ];
-  
-  for (const test of urlsToTry) {
+  // Test the new Welsh Water endpoint
+  if (beach.company === 'welsh-water') {
+    const baseUrl = 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query';
+    const params = new URLSearchParams({
+      f: 'json',
+      where: '1=1',
+      outFields: 'status,start_date_time_discharge,stop_date_time_discharge,asset_name,Linked_Bathing_Water',
+      geometry: `${beach.lon},${beach.lat}`,
+      geometryType: 'esriGeometryPoint',
+      inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects',
+      distance: '5000',
+      units: 'esriSRUnit_Meter',
+      returnGeometry: 'true',
+      outSR: '4326'
+    });
+    
     const testResult = {
-      name: test.name,
-      url: test.url,
+      name: 'Welsh Water Spill_Prod__view (NEW)',
+      url: `${baseUrl}?${params.toString()}`,
       status: null,
       success: false,
       featureCount: null,
       error: null,
-      sampleData: null
+      features: null
     };
     
     try {
-      const response = await fetch(test.url);
+      const response = await fetch(testResult.url);
       testResult.status = response.status;
-      
       const data = await response.json();
       
       if (data.error) {
@@ -776,26 +851,13 @@ app.get('/debug-sewage/:beach', async (req, res) => {
       } else if (data.features) {
         testResult.success = true;
         testResult.featureCount = data.features.length;
-        if (data.features.length > 0) {
-          testResult.sampleData = {
-            attributeKeys: Object.keys(data.features[0].attributes || {}),
-            firstRecord: data.features[0].attributes
-          };
-        }
-      } else if (data.services) {
-        testResult.success = true;
-        testResult.sampleData = {
-          serviceCount: data.services.length,
-          serviceNames: data.services.map(s => s.name).slice(0, 20)
-        };
-      } else if (data.layers) {
-        testResult.success = true;
-        testResult.sampleData = {
-          layerCount: data.layers.length,
-          layers: data.layers.map(l => ({ id: l.id, name: l.name }))
-        };
-      } else {
-        testResult.sampleData = JSON.stringify(data).substring(0, 300);
+        testResult.features = data.features.map(f => ({
+          status: f.attributes.status,
+          assetName: f.attributes.asset_name,
+          startDischarge: f.attributes.start_date_time_discharge,
+          stopDischarge: f.attributes.stop_date_time_discharge,
+          linkedBathingWater: f.attributes.Linked_Bathing_Water
+        }));
       }
     } catch (err) {
       testResult.error = err.message;
@@ -804,10 +866,14 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     result.tests.push(testResult);
   }
   
+  // Also run the actual fetch function
+  const sewageResult = await fetchSewageStatus(beach);
+  result.actualResult = sewageResult;
+  
   res.json(result);
 });
 
-// NEW: Debug endpoint for tides - shows raw API data
+// Debug endpoint for tides
 app.get('/debug-tides/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -829,7 +895,6 @@ app.get('/debug-tides/:beach', async (req, res) => {
     });
     const data = await response.json();
     
-    // Process and sort events
     const events = (data || []).map(event => ({
       type: event.EventType,
       dateTime: event.DateTime,
@@ -838,11 +903,8 @@ app.get('/debug-tides/:beach', async (req, res) => {
       isAfterTarget: new Date(event.DateTime).getTime() >= targetDate.getTime()
     })).sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
     
-    // Count by type
     const highCount = events.filter(e => e.type === 'HighWater').length;
     const lowCount = events.filter(e => e.type === 'LowWater').length;
-    
-    // Find what we'd select
     const selected = await fetchTideForTime(beach, targetDate);
     
     res.json({
@@ -853,11 +915,7 @@ app.get('/debug-tides/:beach', async (req, res) => {
       targetDateLocal: targetDate.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
       duration,
       apiUrl: url,
-      summary: {
-        totalEvents: events.length,
-        highWaterEvents: highCount,
-        lowWaterEvents: lowCount
-      },
+      summary: { totalEvents: events.length, highWaterEvents: highCount, lowWaterEvents: lowCount },
       selectedTide: selected,
       allEvents: events
     });
