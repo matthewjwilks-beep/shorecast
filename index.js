@@ -452,8 +452,9 @@ async function fetchWeatherForTime(beach, targetDate) {
 // ============================================
 // Uses new Welsh Water endpoint (services3.arcgis.com)
 // Old endpoint (services1.arcgis.com/LguJ1f6vTrDEMDUy) is broken
+// Now time-aware: adjusts status based on target forecast time
 
-async function fetchSewageStatus(beach) {
+async function fetchSewageStatus(beach, targetDate = new Date(), isForecast = false) {
   try {
     if (beach.company === 'welsh-water') {
       // New Welsh Water endpoint - Spill_Prod__view service
@@ -490,10 +491,17 @@ async function fetchSewageStatus(beach) {
         return { status: 'clear', icon: '✓', source: 'Welsh Water' };
       }
       
+      const now = new Date();
+      const targetTime = targetDate.getTime();
+      const hoursUntilTarget = (targetTime - now.getTime()) / 3600000;
+      
       // Check all nearby overflows for active or recent discharges
+      let hasActive = false;
+      let activeAsset = null;
       let hasRecent = false;
       let recentAsset = null;
-      let recentHours = null;
+      let recentStopTime = null;
+      let hoursAtTarget = null; // Hours since discharge stopped, at the target time
       
       for (const feature of data.features) {
         const attrs = feature.attributes;
@@ -507,42 +515,95 @@ async function fetchSewageStatus(beach) {
         ) && !statusText.includes('not ') && !statusText.includes('offline');
         
         if (isActive) {
+          hasActive = true;
+          activeAsset = attrs.asset_name;
+          // Don't return immediately - we need to check if this is a forecast
+        }
+        
+        // Check stop_date_time_discharge for recent discharges
+        const stopTime = attrs.stop_date_time_discharge;
+        if (stopTime) {
+          const stopDate = new Date(stopTime);
+          if (!isNaN(stopDate.getTime()) && stopDate <= now) {
+            const hoursSinceNow = (now.getTime() - stopDate.getTime()) / 3600000;
+            // Calculate hours since discharge at the TARGET time
+            const hoursSinceAtTarget = hoursSinceNow + hoursUntilTarget;
+            
+            // Track the most recent discharge
+            if (!recentStopTime || stopDate > recentStopTime) {
+              recentStopTime = stopDate;
+              recentAsset = attrs.asset_name;
+              hoursAtTarget = Math.round(hoursSinceAtTarget);
+            }
+          }
+        }
+        
+        // Also check for "recently" in status text (fallback)
+        if (statusText.includes('recent') && !recentStopTime) {
+          hasRecent = true;
+          recentAsset = attrs.asset_name;
+        }
+      }
+      
+      // Now apply time-aware logic
+      
+      // ACTIVE DISCHARGE
+      if (hasActive) {
+        if (!isForecast) {
+          // Current time - show as active
           return { 
             status: 'active', 
             icon: '✗', 
             source: 'Welsh Water',
-            assetName: attrs.asset_name || null
+            assetName: activeAsset
+          };
+        } else {
+          // Forecast - we can't predict when it'll stop, show as "check"
+          return { 
+            status: 'recent', 
+            icon: '!', 
+            source: 'Welsh Water',
+            assetName: activeAsset,
+            note: 'discharge currently active - check closer to time'
           };
         }
+      }
+      
+      // RECENT DISCHARGE (stopped within last 48 hours from now)
+      if (recentStopTime) {
+        const hoursSinceNow = (now.getTime() - recentStopTime.getTime()) / 3600000;
         
-        // Check for "recently" in status text
-        if (statusText.includes('recent')) {
-          hasRecent = true;
-          recentAsset = attrs.asset_name;
-        }
-        
-        // Check stop_date_time_discharge for recent discharges (within 48 hours)
-        const stopTime = attrs.stop_date_time_discharge;
-        if (stopTime) {
-          const stopDate = new Date(stopTime);
-          if (!isNaN(stopDate.getTime()) && stopDate <= new Date()) {
-            const hoursSince = (Date.now() - stopDate.getTime()) / 3600000;
-            if (hoursSince >= 0 && hoursSince < 48) {
-              hasRecent = true;
-              recentAsset = attrs.asset_name;
-              recentHours = Math.round(hoursSince);
-            }
+        if (hoursSinceNow < 48) {
+          // It's currently "recent" - but will it still be at target time?
+          if (hoursAtTarget >= 48) {
+            // By the target time, 48 hours will have passed - show as clear
+            return { 
+              status: 'clear', 
+              icon: '✓', 
+              source: 'Welsh Water',
+              note: `discharge ended ${Math.round(hoursSinceNow)}h ago, will be 48h+ by forecast time`
+            };
+          } else {
+            // Still within 48 hours at target time
+            return { 
+              status: 'recent', 
+              icon: '!', 
+              source: 'Welsh Water',
+              assetName: recentAsset,
+              hoursSinceDischarge: Math.round(hoursSinceNow),
+              hoursAtForecast: hoursAtTarget
+            };
           }
         }
       }
       
+      // Fallback for "recent" status text without stop time
       if (hasRecent) {
         return { 
           status: 'recent', 
           icon: '!', 
           source: 'Welsh Water',
-          assetName: recentAsset,
-          hoursSinceDischarge: recentHours
+          assetName: recentAsset
         };
       }
       
@@ -691,7 +752,7 @@ app.get('/conditions/:beach?', async (req, res) => {
     const [tide, weatherData, sewage] = await Promise.all([
       fetchTideForTime(beach, targetDate),
       fetchWeatherForTime(beach, targetDate),
-      fetchSewageStatus(beach)
+      fetchSewageStatus(beach, targetDate, false)
     ]);
     
     if (!weatherData) return res.status(500).json({ error: 'Failed to fetch weather data' });
@@ -729,7 +790,7 @@ app.get('/dashboard', async (req, res) => {
       const [tide, weatherData, sewage] = await Promise.all([
         fetchTideForTime(beach, targetDate),
         fetchWeatherForTime(beach, targetDate),
-        fetchSewageStatus(beach)
+        fetchSewageStatus(beach, targetDate, isForecast)
       ]);
       
       if (!weatherData) return null;
@@ -788,7 +849,7 @@ app.post('/alexa', async (req, res) => {
       if (!beach) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: `Sorry, I don't have ${location}.` }, shouldEndSession: true } });
       
       const targetDate = new Date();
-      const [tide, weatherData, sewage] = await Promise.all([fetchTideForTime(beach, targetDate), fetchWeatherForTime(beach, targetDate), fetchSewageStatus(beach)]);
+      const [tide, weatherData, sewage] = await Promise.all([fetchTideForTime(beach, targetDate), fetchWeatherForTime(beach, targetDate), fetchSewageStatus(beach, targetDate, false)]);
       if (!weatherData) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Sorry, couldn\'t fetch conditions.' }, shouldEndSession: true } });
       
       const { marine } = weatherData;
@@ -801,7 +862,7 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
-// Debug endpoint for sewage - updated to test new endpoint
+// Debug endpoint for sewage - updated to test new endpoint and time-aware logic
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -811,10 +872,11 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     beachLat: beach.lat,
     beachLon: beach.lon,
     company: beach.company,
-    tests: []
+    rawApiResponse: null,
+    timeAwareResults: {}
   };
   
-  // Test the new Welsh Water endpoint
+  // Test the new Welsh Water endpoint - get raw data
   if (beach.company === 'welsh-water') {
     const baseUrl = 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query';
     const params = new URLSearchParams({
@@ -831,44 +893,49 @@ app.get('/debug-sewage/:beach', async (req, res) => {
       outSR: '4326'
     });
     
-    const testResult = {
-      name: 'Welsh Water Spill_Prod__view (NEW)',
-      url: `${baseUrl}?${params.toString()}`,
-      status: null,
-      success: false,
-      featureCount: null,
-      error: null,
-      features: null
-    };
-    
     try {
-      const response = await fetch(testResult.url);
-      testResult.status = response.status;
+      const response = await fetch(`${baseUrl}?${params.toString()}`);
       const data = await response.json();
       
-      if (data.error) {
-        testResult.error = data.error.message || JSON.stringify(data.error);
-      } else if (data.features) {
-        testResult.success = true;
-        testResult.featureCount = data.features.length;
-        testResult.features = data.features.map(f => ({
-          status: f.attributes.status,
-          assetName: f.attributes.asset_name,
-          startDischarge: f.attributes.start_date_time_discharge,
-          stopDischarge: f.attributes.stop_date_time_discharge,
-          linkedBathingWater: f.attributes.Linked_Bathing_Water
-        }));
+      if (data.features) {
+        result.rawApiResponse = {
+          featureCount: data.features.length,
+          features: data.features.map(f => ({
+            status: f.attributes.status,
+            assetName: f.attributes.asset_name,
+            startDischarge: f.attributes.start_date_time_discharge,
+            stopDischarge: f.attributes.stop_date_time_discharge,
+            stopDischargeFormatted: f.attributes.stop_date_time_discharge 
+              ? new Date(f.attributes.stop_date_time_discharge).toLocaleString('en-GB', { timeZone: 'Europe/London' })
+              : null,
+            hoursSinceStopped: f.attributes.stop_date_time_discharge
+              ? Math.round((Date.now() - new Date(f.attributes.stop_date_time_discharge).getTime()) / 3600000)
+              : null,
+            linkedBathingWater: f.attributes.Linked_Bathing_Water
+          }))
+        };
+      } else if (data.error) {
+        result.rawApiResponse = { error: data.error.message };
       }
     } catch (err) {
-      testResult.error = err.message;
+      result.rawApiResponse = { error: err.message };
     }
-    
-    result.tests.push(testResult);
   }
   
-  // Also run the actual fetch function
-  const sewageResult = await fetchSewageStatus(beach);
-  result.actualResult = sewageResult;
+  // Test time-aware logic for each time slot
+  const timeSlots = ['now', 'tonight', 'tomorrow-am', 'tomorrow-pm', 'day-after-am'];
+  
+  for (const slot of timeSlots) {
+    const targetDate = getDateForTimeSlot(slot);
+    const isForecast = slot !== 'now';
+    const sewageResult = await fetchSewageStatus(beach, targetDate, isForecast);
+    
+    result.timeAwareResults[slot] = {
+      targetDate: targetDate.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
+      isForecast,
+      ...sewageResult
+    };
+  }
   
   res.json(result);
 });
