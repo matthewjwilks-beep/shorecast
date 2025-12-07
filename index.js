@@ -675,7 +675,28 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       }
     }
     
-    // AMBER dipping conditions
+    // AMBER dipping conditions (11-12°C - still good but not ideal)
+    if (status === 'amber' && marine.seaTemp >= 11 && marine.seaTemp < 13) {
+      // Weather context - softer than green
+      if (isMorningForecast && isClear) {
+        parts.push(`soft grey light. ${weatherState}.`);
+      } else {
+        parts.push(`${weatherState}.`);
+      }
+      
+      // Recovery conditions
+      if (weather.feelsLike < 10) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - layers for recovery.`);
+      }
+      
+      // Water quality
+      if (sewage.status === 'clear') parts.push('water quality clear.');
+      
+      // Safe time - slightly longer window
+      parts.push('safe time: 5-8 minutes.');
+    }
+    
+    // AMBER dipping conditions (13°C+ - too mild)
     if (status === 'amber' && marine.seaTemp >= 13) {
       parts.push(`${weatherState}.`);
       if (weather.feelsLike < 10) {
