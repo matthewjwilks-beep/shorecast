@@ -4,7 +4,7 @@
 // Last Updated: 7 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Improved recommendation text - more poetic and encouraging
+// UPDATED: Added debug-marine endpoint for sea temperature diagnosis
 
 const express = require('express');
 const cors = require('cors');
@@ -627,7 +627,7 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     } else {
       status = 'amber'; 
       statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** Still bracing, still good.`);
+      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** still bracing, still good.`);
     }
     
     // GREEN dipping conditions
@@ -843,6 +843,10 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
+// ============================================
+// DEBUG ENDPOINTS
+// ============================================
+
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -962,6 +966,93 @@ app.get('/debug-tides/:beach', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Debug endpoint for marine data (sea temperature diagnosis)
+app.get('/debug-marine/:beach', async (req, res) => {
+  const beach = BEACHES.find(b => b.slug === req.params.beach);
+  if (!beach) return res.status(404).json({ error: 'Beach not found' });
+  
+  const timeSlot = req.query.time || 'now';
+  const targetDate = getDateForTimeSlot(timeSlot);
+  const dateStr = targetDate.toISOString().split('T')[0];
+  const hour = targetDate.getHours();
+  
+  // Get a 3-day range to see forecast data too
+  const endDate = new Date(targetDate);
+  endDate.setDate(endDate.getDate() + 2);
+  const endDateStr = endDate.toISOString().split('T')[0];
+  
+  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${beach.lat}&longitude=${beach.lon}&hourly=wave_height,swell_wave_height,wave_period,sea_surface_temperature&start_date=${dateStr}&end_date=${endDateStr}`;
+  
+  const result = {
+    beach: beach.name,
+    slug: beach.slug,
+    coordinates: { lat: beach.lat, lon: beach.lon },
+    timeSlot,
+    targetDate: targetDate.toISOString(),
+    targetDateLocal: targetDate.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
+    targetHour: hour,
+    apiUrl: marineUrl,
+    rawResponse: null,
+    extracted: null,
+    diagnosis: []
+  };
+  
+  try {
+    const response = await fetch(marineUrl);
+    const data = await response.json();
+    
+    result.rawResponse = data;
+    
+    // Check if we got SST data
+    if (data.error) {
+      result.diagnosis.push(`API Error: ${JSON.stringify(data.error)}`);
+    } else if (!data.hourly) {
+      result.diagnosis.push('No hourly data returned');
+    } else {
+      const sst = data.hourly.sea_surface_temperature;
+      const times = data.hourly.time;
+      
+      if (!sst) {
+        result.diagnosis.push('sea_surface_temperature field is missing from response');
+      } else {
+        // Count non-null values
+        const nonNullCount = sst.filter(v => v !== null).length;
+        const totalCount = sst.length;
+        
+        result.diagnosis.push(`SST data: ${nonNullCount}/${totalCount} hours have values`);
+        
+        if (nonNullCount === 0) {
+          result.diagnosis.push('ALL SST values are null - likely no coverage for this location');
+        }
+        
+        // Extract value for target hour
+        const targetValue = sst[hour];
+        result.extracted = {
+          targetHour: hour,
+          seaTemp: targetValue,
+          seaTempDisplay: targetValue ? `${Math.round(targetValue)}°C` : 'null',
+          waveHeight: data.hourly.wave_height?.[hour],
+          swellHeight: data.hourly.swell_wave_height?.[hour]
+        };
+        
+        // Show sample of data across the forecast period
+        result.sampleData = [];
+        for (let i = 0; i < Math.min(72, times?.length || 0); i += 6) {
+          result.sampleData.push({
+            time: times[i],
+            seaTemp: sst[i],
+            waveHeight: data.hourly.wave_height?.[i]
+          });
+        }
+      }
+    }
+  } catch (err) {
+    result.diagnosis.push(`Fetch error: ${err.message}`);
+  }
+  
+  res.json(result);
 });
 
 app.listen(PORT, () => console.log(`Shorecast running on port ${PORT}`));
