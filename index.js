@@ -4,7 +4,7 @@
 // Last Updated: 7 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Fixed Welsh Water sewage API endpoint
+// UPDATED: Improved recommendation text - more poetic and encouraging
 
 const express = require('express');
 const cors = require('cors');
@@ -450,7 +450,6 @@ async function fetchWeatherForTime(beach, targetDate) {
 async function fetchSewageStatus(beach) {
   try {
     if (beach.company === 'welsh-water') {
-      // NEW WORKING ENDPOINT - Updated 7 Dec 2025
       const url = `https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query?where=1%3D1&outFields=status,stop_date_time_discharge,start_date_time_discharge,asset_name,Linked_Bathing_Water&f=json&returnGeometry=false`;
       const response = await fetch(url);
       const data = await response.json();
@@ -460,12 +459,10 @@ async function fetchSewageStatus(beach) {
         return { status: 'unknown', icon: '?', source: 'Welsh Water' };
       }
       
-      // Find overflows linked to this beach
       const beachOverflows = data.features.filter(f => {
         const linkedBeach = f.attributes.Linked_Bathing_Water;
         if (!linkedBeach) return false;
         
-        // Flexible matching - remove spaces and compare
         const beachLower = beach.name.toLowerCase().replace(/\s+/g, '');
         const linkedLower = linkedBeach.toLowerCase().replace(/\s+/g, '');
         
@@ -473,11 +470,9 @@ async function fetchSewageStatus(beach) {
       });
       
       if (beachOverflows.length === 0) {
-        // No linked overflows found = clear
         return { status: 'clear', icon: '✓', source: 'Welsh Water' };
       }
       
-      // Check if ANY linked overflow is currently operating
       const activeOverflow = beachOverflows.find(f => 
         f.attributes.status === 'Overflow Operating'
       );
@@ -486,7 +481,6 @@ async function fetchSewageStatus(beach) {
         return { status: 'active', icon: '✗', source: 'Welsh Water' };
       }
       
-      // Check for recent discharges (within 48 hours)
       const now = Date.now();
       const recentOverflow = beachOverflows.find(f => {
         const stopTime = f.attributes.stop_date_time_discharge;
@@ -502,11 +496,9 @@ async function fetchSewageStatus(beach) {
         return { status: 'recent', icon: '!', source: 'Welsh Water' };
       }
       
-      // All overflows not operating and >48 hours since last discharge
       return { status: 'clear', icon: '✓', source: 'Welsh Water' };
     }
     
-    // English beaches - placeholder (Phase 3)
     return { status: 'clear', icon: '✓', source: beach.companyName };
     
   } catch (err) {
@@ -516,7 +508,7 @@ async function fetchSewageStatus(beach) {
 }
 
 // ============================================
-// RECOMMENDATION ENGINE
+// RECOMMENDATION ENGINE - IMPROVED TEXT
 // ============================================
 
 function generateRecommendation(beach, conditions, mode, timeSlot) {
@@ -540,12 +532,15 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   const isEveningForecast = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
   
   if (mode === 'swimming') {
+    // RED conditions
     if (sewage.status === 'active') {
       return { status: 'red', statusText: 'avoid', recommendation: '**active sewage discharge.** swimming not recommended. try a nearby beach instead.' };
     }
     if (marine.waveHeight > 2) {
-      return { status: 'red', statusText: 'rough', recommendation: `**very rough seas** at ${marine.waveHeight.toFixed(1)}m waves. dangerous conditions.` };
+      return { status: 'red', statusText: 'rough', recommendation: `**very rough seas.** ${marine.waveHeight.toFixed(1)}m waves. dangerous conditions.` };
     }
+    
+    // AMBER conditions
     if (sewage.status === 'recent') {
       status = 'amber'; statusText = 'check';
       parts.push('**sewage discharge ended 24-48 hours ago.** water should be clear but some prefer to wait.');
@@ -553,60 +548,141 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     if (marine.waveHeight >= 1.5) {
       if (status === 'green') status = 'amber';
       statusText = 'choppy';
-      parts.push(`**choppy conditions** at ${marine.waveHeight.toFixed(1)}m waves.`);
+      parts.push(`**${marine.waveHeight.toFixed(1)}m waves - some push and pull.** stay aware.`);
     }
     if (weather.windSpeed > 40) {
       if (status === 'green') status = 'amber';
       statusText = 'windy';
-      parts.push(`**strong winds** at ${Math.round(weather.windSpeed)}km/h.`);
+      parts.push(`**strong winds.** ${Math.round(weather.windSpeed)}km/h.`);
     }
+    
+    // GREEN conditions
     if (status === 'green') {
       statusText = 'excellent';
-      if (marine.waveHeight < 0.5) parts.push(`**perfect conditions.** calm water. ${weatherState}.`);
-      else if (marine.waveHeight < 1) parts.push(`**lovely conditions.** gentle waves. ${weatherState}.`);
-      else parts.push(`**good swimming weather.** moderate swell. ${weatherState}.`);
       
+      // Opening - water state
+      if (marine.waveHeight < 0.5) {
+        parts.push(`**glassy water.** barely a ripple. ${weatherState}.`);
+      } else if (marine.waveHeight < 0.8) {
+        parts.push(`**calm water.** ${weatherState}.`);
+      } else if (marine.waveHeight < 1.2) {
+        parts.push(`**gentle swell.** rolling waves. ${weatherState}.`);
+      } else {
+        parts.push(`**moderate conditions.** ${marine.waveHeight.toFixed(1)}m waves. ${weatherState}.`);
+      }
+      
+      // Wind description
       if (weather.windSpeed < 10) parts.push('barely any breeze.');
       else if (weather.windSpeed < 20) parts.push('light breeze.');
+      else if (weather.windSpeed < 30) parts.push('moderate breeze.');
+      
+      // Sewage
       if (sewage.status === 'clear') parts.push('no sewage alerts.');
       
+      // Sunrise/sunset context
       if (sun && isMorningForecast && isClear) {
         parts.push(`**sunrise at ${sun.sunrise}** - clear skies for the show.`);
       }
       if (sun && isEveningForecast && ['west', 'northwest', 'southwest'].includes(beach.facing) && isClear) {
-        parts.push(`**sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach.`);
+        parts.push(`**sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach. worth staying for.`);
       }
+      
+      // UV
       if (weather.uvIndex >= 6) parts.push(`UV high (${weather.uvIndex}) - bring sun cream.`);
-      if (tide.high.time && tide.high.time !== '—') parts.push(`high tide ${tide.high.time}, low ${tide.low.time}.`);
-      if (marine.seaTemp && marine.seaTemp < 12) parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
+      else if (weather.uvIndex >= 3) parts.push(`UV moderate (${weather.uvIndex}).`);
+      
+      // Tide
+      if (tide.high.time && tide.high.time !== '—') {
+        parts.push(`high tide ${tide.high.time}, low ${tide.low.time}.`);
+      }
+      
+      // Temperature
+      if (marine.seaTemp && marine.seaTemp < 12) {
+        parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
+      }
     }
+    
   } else if (mode === 'dipping') {
+    // RED conditions
     if (sewage.status === 'active' || sewage.status === 'recent') {
       return { status: 'red', statusText: 'wait', recommendation: '**sewage discharge recently.** wait 48 hours for dipping.' };
     }
     if (weather.feelsLike < 0) {
-      return { status: 'red', statusText: 'dangerous', recommendation: `**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C.` };
+      return { status: 'red', statusText: 'dangerous', recommendation: `**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C during recovery.` };
     }
+    
+    // Temperature-based status
     if (marine.seaTemp >= 13) {
-      status = 'amber'; statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - too mild for cold therapy.**`);
+      status = 'amber'; 
+      statusText = 'mild';
+      parts.push(`**${Math.round(marine.seaTemp)}°C - for a longer, gentler dip.** too warm for serious cold therapy.`);
     } else if (marine.seaTemp <= 8) {
-      status = 'green'; statusText = 'perfect';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - this is the one.** proper cold therapy.`);
+      status = 'green'; 
+      statusText = 'perfect';
+      parts.push(`**${Math.round(marine.seaTemp)}°C - pure winter magic.** proper cold therapy.`);
     } else if (marine.seaTemp <= 10) {
-      status = 'green'; statusText = 'excellent';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - nice and cold.**`);
+      status = 'green'; 
+      statusText = 'excellent';
+      parts.push(`**${Math.round(marine.seaTemp)}°C - crisp and clarifying.**`);
     } else {
-      status = 'amber'; statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - refreshing but not that winter bite.**`);
+      status = 'amber'; 
+      statusText = 'mild';
+      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** still bracing, still good.`);
     }
+    
+    // GREEN dipping conditions
     if (status === 'green') {
-      parts.push(weatherState + '.');
-      if (isMorningForecast && sun && isClear) parts.push(`**dawn dip with sunrise at ${sun.sunrise}.**`);
-      if (weather.feelsLike < 5) parts.push(`feels like ${Math.round(weather.feelsLike)}°C - warm layers essential.`);
+      // Weather context
+      if (isMorningForecast && isClear) {
+        parts.push(`still morning. ${weatherState}. the world quiet before it wakes.`);
+      } else if (isClear) {
+        parts.push(`${weatherState}. no distractions.`);
+      } else {
+        parts.push(`${weatherState}. pure focus.`);
+      }
+      
+      // Sunrise emphasis for dawn dips
+      if (isMorningForecast && sun && isClear) {
+        parts.push(`**dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
+      }
+      
+      // Recovery conditions
+      if (weather.feelsLike < 5) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C on land. warm layers essential. hot drink recommended.`);
+      } else if (weather.feelsLike < 10) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - bring warm layers for after.`);
+      }
+      
+      // Wind context
+      if (weather.windSpeed < 15) {
+        parts.push('calm conditions for getting changed.');
+      } else if (weather.windSpeed < 25) {
+        parts.push('breezy - find shelter for changing.');
+      } else {
+        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one.`);
+      }
+      
+      // Water quality
       if (sewage.status === 'clear') parts.push('water quality clear.');
-      if (marine.seaTemp <= 8) parts.push('safe time: 3-5 minutes.');
-      else parts.push('safe time: 5-10 minutes.');
+      
+      // Safe time guidance
+      if (marine.seaTemp <= 8) {
+        parts.push('safe time: 3-5 minutes.');
+      } else if (marine.seaTemp <= 10) {
+        parts.push('safe time: 5-8 minutes.');
+      } else {
+        parts.push('safe time: 8-10 minutes depending on experience.');
+      }
+    }
+    
+    // AMBER dipping conditions
+    if (status === 'amber' && marine.seaTemp >= 13) {
+      parts.push(`${weatherState}.`);
+      if (weather.feelsLike < 10) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - layer up for after.`);
+      }
+      if (sewage.status === 'clear') parts.push('water quality clear.');
+      parts.push('consider saving this for a distance swim instead.');
     }
   }
   
@@ -746,7 +822,6 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
-// Debug endpoint for sewage
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -813,7 +888,6 @@ app.get('/debug-sewage/:beach', async (req, res) => {
   res.json(result);
 });
 
-// Debug endpoint for tides
 app.get('/debug-tides/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
