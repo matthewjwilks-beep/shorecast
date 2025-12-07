@@ -627,7 +627,7 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     } else {
       status = 'amber'; 
       statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** still bracing, still good.`);
+      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** Still bracing, still good.`);
     }
     
     // GREEN dipping conditions
