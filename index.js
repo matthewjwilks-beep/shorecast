@@ -518,12 +518,12 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   let parts = [];
   
   const getWeatherState = () => {
-    if (weather.precipitation > 2) return 'rain forecast';
-    if (weather.precipitation > 0.5) return 'light rain expected';
-    if (weather.cloudCover < 20) return 'clear skies';
-    if (weather.cloudCover < 50) return 'partly cloudy';
-    if (weather.cloudCover < 80) return 'mostly cloudy';
-    return 'overcast conditions';
+    if (weather.precipitation > 2) return 'Rain forecast';
+    if (weather.precipitation > 0.5) return 'Light rain expected';
+    if (weather.cloudCover < 20) return 'Clear skies';
+    if (weather.cloudCover < 50) return 'Partly cloudy';
+    if (weather.cloudCover < 80) return 'Mostly cloudy';
+    return 'Overcast conditions';
   };
   
   const weatherState = getWeatherState();
@@ -534,26 +534,26 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   if (mode === 'swimming') {
     // RED conditions
     if (sewage.status === 'active') {
-      return { status: 'red', statusText: 'avoid', recommendation: '**active sewage discharge.** swimming not recommended. try a nearby beach instead.' };
+      return { status: 'red', statusText: 'avoid', recommendation: '**Active sewage discharge.** Swimming not recommended. Try a nearby beach instead.' };
     }
     if (marine.waveHeight > 2) {
-      return { status: 'red', statusText: 'rough', recommendation: `**very rough seas.** ${marine.waveHeight.toFixed(1)}m waves. dangerous conditions.` };
+      return { status: 'red', statusText: 'rough', recommendation: `**Very rough seas.** ${marine.waveHeight.toFixed(1)}m waves. Dangerous conditions.` };
     }
     
     // AMBER conditions
     if (sewage.status === 'recent') {
       status = 'amber'; statusText = 'check';
-      parts.push('**sewage discharge ended 24-48 hours ago.** water should be clear but some prefer to wait.');
+      parts.push('**Sewage discharge ended 24-48 hours ago.** Water should be clear but some prefer to wait.');
     }
     if (marine.waveHeight >= 1.5) {
       if (status === 'green') status = 'amber';
       statusText = 'choppy';
-      parts.push(`**${marine.waveHeight.toFixed(1)}m waves - some push and pull.** stay aware.`);
+      parts.push(`**${marine.waveHeight.toFixed(1)}m waves - some push and pull.** Stay aware.`);
     }
     if (weather.windSpeed > 40) {
       if (status === 'green') status = 'amber';
       statusText = 'windy';
-      parts.push(`**strong winds.** ${Math.round(weather.windSpeed)}km/h.`);
+      parts.push(`**Strong winds.** ${Math.round(weather.windSpeed)}km/h.`);
     }
     
     // GREEN conditions
@@ -572,19 +572,19 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       }
       
       // Wind description
-      if (weather.windSpeed < 10) parts.push('barely any breeze.');
-      else if (weather.windSpeed < 20) parts.push('light breeze.');
-      else if (weather.windSpeed < 30) parts.push('moderate breeze.');
+      if (weather.windSpeed < 10) parts.push('Barely any breeze.');
+      else if (weather.windSpeed < 20) parts.push('Light breeze.');
+      else if (weather.windSpeed < 30) parts.push('Moderate breeze.');
       
       // Sewage
-      if (sewage.status === 'clear') parts.push('no sewage alerts.');
+      if (sewage.status === 'clear') parts.push('No sewage alerts.');
       
       // Sunrise/sunset context
       if (sun && isMorningForecast && isClear) {
-        parts.push(`**sunrise at ${sun.sunrise}** - clear skies for the show.`);
+        parts.push(`**Sunrise at ${sun.sunrise}** - clear skies for the show.`);
       }
       if (sun && isEveningForecast && ['west', 'northwest', 'southwest'].includes(beach.facing) && isClear) {
-        parts.push(`**sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach. worth staying for.`);
+        parts.push(`**Sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach. Worth staying for.`);
       }
       
       // UV
@@ -593,29 +593,29 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       
       // Tide
       if (tide.high.time && tide.high.time !== '—') {
-        parts.push(`high tide ${tide.high.time}, low ${tide.low.time}.`);
+        parts.push(`High tide ${tide.high.time}, low ${tide.low.time}.`);
       }
       
       // Temperature
       if (marine.seaTemp && marine.seaTemp < 12) {
-        parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
+        parts.push(`Water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
       }
     }
     
   } else if (mode === 'dipping') {
     // RED conditions
     if (sewage.status === 'active' || sewage.status === 'recent') {
-      return { status: 'red', statusText: 'wait', recommendation: '**sewage discharge recently.** wait 48 hours for dipping.' };
+      return { status: 'red', statusText: 'wait', recommendation: '**Sewage discharge recently.** Wait 48 hours for dipping.' };
     }
     if (weather.feelsLike < 0) {
-      return { status: 'red', statusText: 'dangerous', recommendation: `**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C during recovery.` };
+      return { status: 'red', statusText: 'dangerous', recommendation: `**Severe hypothermia risk.** Feels like ${Math.round(weather.feelsLike)}°C during recovery.` };
     }
     
     // Temperature-based status
     if (marine.seaTemp >= 13) {
       status = 'amber'; 
       statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - for a longer, gentler dip.** too warm for serious cold therapy.`);
+      parts.push(`**${Math.round(marine.seaTemp)}°C - for a longer, gentler dip.** Too warm for serious cold therapy.`);
     } else if (marine.seaTemp <= 8) {
       status = 'green'; 
       statusText = 'perfect';
@@ -634,44 +634,44 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     if (status === 'green') {
       // Weather context
       if (isMorningForecast && isClear) {
-        parts.push(`still morning. ${weatherState}. the world quiet before it wakes.`);
+        parts.push(`Still morning. ${weatherState}. The world quiet before it wakes.`);
       } else if (isClear) {
-        parts.push(`${weatherState}. no distractions.`);
+        parts.push(`${weatherState}. No distractions.`);
       } else {
-        parts.push(`${weatherState}. pure focus.`);
+        parts.push(`${weatherState}. Pure focus.`);
       }
       
       // Sunrise emphasis for dawn dips
       if (isMorningForecast && sun && isClear) {
-        parts.push(`**dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
+        parts.push(`**Dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
       }
       
       // Recovery conditions
       if (weather.feelsLike < 5) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C on land. warm layers essential. hot drink recommended.`);
+        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C on land. Warm layers essential. Hot drink recommended.`);
       } else if (weather.feelsLike < 10) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - bring warm layers for after.`);
+        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - bring warm layers for after.`);
       }
       
       // Wind context
       if (weather.windSpeed < 15) {
-        parts.push('calm conditions for getting changed.');
+        parts.push('Calm conditions for getting changed.');
       } else if (weather.windSpeed < 25) {
-        parts.push('breezy - find shelter for changing.');
+        parts.push('Breezy - find shelter for changing.');
       } else {
-        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one.`);
+        parts.push(`Wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one.`);
       }
       
       // Water quality
-      if (sewage.status === 'clear') parts.push('water quality clear.');
+      if (sewage.status === 'clear') parts.push('Water quality clear.');
       
       // Safe time guidance
       if (marine.seaTemp <= 8) {
-        parts.push('safe time: 3-5 minutes.');
+        parts.push('Safe time: 3-5 minutes.');
       } else if (marine.seaTemp <= 10) {
-        parts.push('safe time: 5-8 minutes.');
+        parts.push('Safe time: 5-8 minutes.');
       } else {
-        parts.push('safe time: 8-10 minutes depending on experience.');
+        parts.push('Safe time: 8-10 minutes depending on experience.');
       }
     }
     
@@ -679,31 +679,31 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     if (status === 'amber' && marine.seaTemp >= 11 && marine.seaTemp < 13) {
       // Weather context - softer than green
       if (isMorningForecast && isClear) {
-        parts.push(`soft grey light. ${weatherState}.`);
+        parts.push(`Soft grey light. ${weatherState}.`);
       } else {
         parts.push(`${weatherState}.`);
       }
       
       // Recovery conditions
       if (weather.feelsLike < 10) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - layers for recovery.`);
+        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - layers for recovery.`);
       }
       
       // Water quality
-      if (sewage.status === 'clear') parts.push('water quality clear.');
+      if (sewage.status === 'clear') parts.push('Water quality clear.');
       
       // Safe time - slightly longer window
-      parts.push('safe time: 5-8 minutes.');
+      parts.push('Safe time: 5-8 minutes.');
     }
     
     // AMBER dipping conditions (13°C+ - too mild)
     if (status === 'amber' && marine.seaTemp >= 13) {
       parts.push(`${weatherState}.`);
       if (weather.feelsLike < 10) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - layer up for after.`);
+        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - layer up for after.`);
       }
-      if (sewage.status === 'clear') parts.push('water quality clear.');
-      parts.push('consider saving this for a distance swim instead.');
+      if (sewage.status === 'clear') parts.push('Water quality clear.');
+      parts.push('Consider saving this for a distance swim instead.');
     }
   }
   
@@ -834,7 +834,7 @@ app.post('/alexa', async (req, res) => {
       if (!weatherData) return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Sorry, couldn\'t fetch conditions.' }, shouldEndSession: true } });
       
       const { marine } = weatherData;
-      const speech = `${beach.name}. Water ${Math.round(marine.seaTemp)} degrees. Waves ${marine.waveHeight.toFixed(1)} meters. High tide at ${tide.high.time}, low tide at ${tide.low.time}. ${sewage.status === 'clear' ? 'No sewage alerts.' : 'Check sewage status.'}`;
+      const speech = `${beach.name}. Water ${Math.round(marine.seaTemp)} degrees. Waves ${marine.waveHeight.toFixed(1)} metres. High tide at ${tide.high.time}, low tide at ${tide.low.time}. ${sewage.status === 'clear' ? 'No sewage alerts.' : 'Check sewage status.'}`;
       return res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: true } });
     }
     res.json({ version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'Sorry, didn\'t understand.' }, shouldEndSession: true } });
