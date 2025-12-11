@@ -24,6 +24,47 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 // ============================================
+// SIMPLE IN-MEMORY CACHE
+// ============================================
+
+const cache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(beaches, mode, time) {
+  return `${beaches.join(',')}-${mode}-${time}`;
+}
+
+function getFromCache(key) {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  
+  const age = Date.now() - cached.timestamp;
+  if (age > CACHE_DURATION) {
+    cache.delete(key);
+    return null;
+  }
+  
+  return cached.data;
+}
+
+function setCache(key, data) {
+  cache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+  
+  // Clean old entries every 100 requests
+  if (cache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of cache.entries()) {
+      if (now - v.timestamp > CACHE_DURATION) {
+        cache.delete(k);
+      }
+    }
+  }
+}
+
+// ============================================
 // SEWAGE OVERFLOW CONTEXT DEFINITIONS
 // ============================================
 
@@ -876,6 +917,16 @@ app.get('/conditions/:beach?', async (req, res) => {
     const beach = BEACHES.find(b => b.slug === slug);
     if (!beach) return res.status(404).json({ error: 'Beach not found' });
     
+    // Check cache
+    const cacheKey = `single-${slug}-${mode}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: ${cacheKey}`);
+      return res.json(cached);
+    }
+    
+    console.log(`Cache MISS: ${cacheKey} - fetching fresh data`);
+    
     const targetDate = new Date();
     const [tide, weatherData, sewage] = await Promise.all([
       fetchTideForTime(beach, targetDate),
@@ -890,7 +941,12 @@ app.get('/conditions/:beach?', async (req, res) => {
     const sunTimes = calculateSunTimes(beach.lat, beach.lon, targetDate);
     const recommendation = generateRecommendation(beach, { marine, weather: { ...weather, feelsLike }, sewage, tide, sun: sunTimes }, mode, 'now');
     
-    res.json({ beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide: { high: tide.high.time, low: tide.low.time }, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation });
+    const result = { beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide: { high: tide.high.time, low: tide.low.time }, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation };
+    
+    // Store in cache
+    setCache(cacheKey, result);
+    
+    res.json(result);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -907,6 +963,16 @@ app.get('/dashboard', async (req, res) => {
     
     const validTimes = ['now', 'tonight', 'tomorrow-am', 'tomorrow-pm', 'day-after-am'];
     if (!validTimes.includes(timeSlot)) return res.status(400).json({ error: 'Invalid time' });
+    
+    // Check cache first
+    const cacheKey = getCacheKey(beachSlugs, mode, timeSlot);
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: ${cacheKey}`);
+      return res.json(cached);
+    }
+    
+    console.log(`Cache MISS: ${cacheKey} - fetching fresh data`);
     
     const targetDate = getDateForTimeSlot(timeSlot);
     const isForecast = timeSlot !== 'now';
@@ -945,17 +1011,23 @@ app.get('/dashboard', async (req, res) => {
     const validBeaches = beachesData.filter(b => b !== null);
     if (validBeaches.length === 0) return res.status(404).json({ error: 'No valid beaches found' });
     
-    res.json({
+    const result = {
       meta: {
         time: timeSlot,
         timeLabel: getTimeLabel(timeSlot),
         mode,
         isForecast,
         updatedAt: new Date().toISOString(),
-        availableTimeSlots: getAvailableTimeSlots()
+        availableTimeSlots: getAvailableTimeSlots(),
+        cached: false
       },
       beaches: validBeaches
-    });
+    };
+    
+    // Store in cache
+    setCache(cacheKey, result);
+    
+    res.json(result);
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
@@ -1200,6 +1272,38 @@ app.get('/debug-marine/:beach', async (req, res) => {
   }
   
   res.json(result);
+});
+
+// Cache management endpoints
+app.get('/cache/stats', (req, res) => {
+  const stats = {
+    size: cache.size,
+    entries: Array.from(cache.keys()),
+    oldestEntry: null,
+    newestEntry: null
+  };
+  
+  if (cache.size > 0) {
+    let oldest = Date.now();
+    let newest = 0;
+    
+    for (const [key, value] of cache.entries()) {
+      if (value.timestamp < oldest) oldest = value.timestamp;
+      if (value.timestamp > newest) newest = value.timestamp;
+    }
+    
+    const now = Date.now();
+    stats.oldestEntry = `${Math.round((now - oldest) / 1000)}s ago`;
+    stats.newestEntry = `${Math.round((now - newest) / 1000)}s ago`;
+  }
+  
+  res.json(stats);
+});
+
+app.post('/cache/clear', (req, res) => {
+  const size = cache.size;
+  cache.clear();
+  res.json({ message: 'Cache cleared', entriesRemoved: size });
 });
 
 app.listen(PORT, () => console.log(`Shorecast running on port ${PORT}`));
