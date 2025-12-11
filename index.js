@@ -580,11 +580,22 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       if (sewage.status === 'clear') parts.push('No sewage alerts.');
       
       // Sunrise/sunset context
+      const isEastFacing = beach.facing && ['east', 'northeast', 'southeast'].includes(beach.facing);
+      const isWestFacing = beach.facing && ['west', 'northwest', 'southwest'].includes(beach.facing);
+      
       if (sun && isMorningForecast && isClear) {
-        parts.push(`**Sunrise at ${sun.sunrise}** - clear skies for the show.`);
+        if (isEastFacing) {
+          parts.push(`**Sunrise at ${sun.sunrise}** - this ${beach.facing}-facing beach gives you front-row seats to the show.`);
+        } else {
+          parts.push(`**Sunrise at ${sun.sunrise}** - clear skies for beautiful morning light.`);
+        }
       }
-      if (sun && isEveningForecast && ['west', 'northwest', 'southwest'].includes(beach.facing) && isClear) {
-        parts.push(`**Sunset window around ${sun.sunset}** on this ${beach.facing}-facing beach. Worth staying for.`);
+      if (sun && isEveningForecast && isClear) {
+        if (isWestFacing) {
+          parts.push(`**Sunset at ${sun.sunset}** - ${beach.facing}-facing beach means swimming into golden hour. worth staying for.`);
+        } else {
+          parts.push(`**Sunset at ${sun.sunset}** - clear evening conditions.`);
+        }
       }
       
       // UV
@@ -642,8 +653,23 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       }
       
       // Sunrise emphasis for dawn dips
+      const isEastFacing = beach.facing && ['east', 'northeast', 'southeast'].includes(beach.facing);
       if (isMorningForecast && sun && isClear) {
-        parts.push(`**Dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
+        if (isEastFacing) {
+          parts.push(`**Dawn at ${sun.sunrise}** - ${beach.facing}-facing beach means you'll watch it rise from the water. this is what it's all about.`);
+        } else {
+          parts.push(`**Dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
+        }
+      }
+      
+      // Sunset emphasis for evening dips
+      const isWestFacing = beach.facing && ['west', 'northwest', 'southwest'].includes(beach.facing);
+      if (isEveningForecast && sun && isClear) {
+        if (isWestFacing) {
+          parts.push(`**Evening dip with sunset at ${sun.sunset}** - ${beach.facing}-facing beach means golden hour in the water. worth staying for.`);
+        } else {
+          parts.push(`**Evening dip before sunset at ${sun.sunset}** - clear evening for your cold therapy session.`);
+        }
       }
       
       // Recovery conditions
