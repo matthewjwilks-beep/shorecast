@@ -24,218 +24,248 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 // ============================================
+// SEWAGE OVERFLOW CONTEXT DEFINITIONS
+// ============================================
+
+const OVERFLOW_CONTEXTS = {
+  // Urban frequent - 24hr clearance
+  frequent: {
+    clearanceHours: 24,
+    description: 'urban beach with regular monitored discharges',
+    messageGreen: 'discharge yesterday. urban beach with UV treatment and regular testing - water quality rated excellent',
+    messageAmber: 'discharge earlier today. water clearing. this beach has frequent overflows but good treatment systems'
+  },
+  
+  // Moderate - 36hr clearance  
+  moderate: {
+    clearanceHours: 36,
+    description: 'popular beach with occasional discharges',
+    messageGreen: 'discharge clearing. popular beach with monitoring',
+    messageAmber: 'recent discharge. check again in a few hours if concerned'
+  },
+  
+  // Remote rare - 48hr clearance
+  rare: {
+    clearanceHours: 48,
+    description: 'remote beach where overflows are unusual',
+    messageGreen: 'discharge 24-48 hours ago. being cautious as this beach rarely has overflows',
+    messageAmber: 'unusual discharge for this remote beach. recommend waiting 48 hours'
+  }
+};
+
+// ============================================
 // BEACH DATABASE - CORRECTED TIDAL STATIONS
 // ============================================
 
 const BEACHES = [
   // ANGLESEY
-  { slug: 'benllech', name: 'Benllech', location: 'Anglesey', lat: 53.319, lon: -4.225, facing: 'east', stationId: '0476A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'lligwy', name: 'Lligwy Bay', location: 'Anglesey', lat: 53.341, lon: -4.241, facing: 'northeast', stationId: '0476A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'trearddur-bay', name: 'Trearddur Bay', location: 'Anglesey', lat: 53.267, lon: -4.617, facing: 'southwest', stationId: '0479', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'rhosneigr', name: 'Rhosneigr', location: 'Anglesey', lat: 53.228, lon: -4.508, facing: 'southwest', stationId: '0479A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'newborough', name: 'Newborough Beach', location: 'Anglesey', lat: 53.142, lon: -4.378, facing: 'southwest', stationId: '0480', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'llanddwyn', name: 'Llanddwyn Beach', location: 'Anglesey', lat: 53.1414, lon: -4.4303, facing: 'southwest', stationId: '0480', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberffraw', name: 'Aberffraw', location: 'Anglesey', lat: 53.191, lon: -4.463, facing: 'west', stationId: '0479A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'cemaes', name: 'Cemaes Bay', location: 'Anglesey', lat: 53.414, lon: -4.448, facing: 'north', stationId: '0477A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'benllech', name: 'Benllech', location: 'Anglesey', lat: 53.319, lon: -4.225, facing: 'east', stationId: '0476A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'lligwy', name: 'Lligwy Bay', location: 'Anglesey', lat: 53.341, lon: -4.241, facing: 'northeast', stationId: '0476A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'trearddur-bay', name: 'Trearddur Bay', location: 'Anglesey', lat: 53.267, lon: -4.617, facing: 'southwest', stationId: '0479', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'rhosneigr', name: 'Rhosneigr', location: 'Anglesey', lat: 53.228, lon: -4.508, facing: 'southwest', stationId: '0479A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'newborough', name: 'Newborough Beach', location: 'Anglesey', lat: 53.142, lon: -4.378, facing: 'southwest', stationId: '0480', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'llanddwyn', name: 'Llanddwyn Beach', location: 'Anglesey', lat: 53.1414, lon: -4.4303, facing: 'southwest', stationId: '0480', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'aberffraw', name: 'Aberffraw', location: 'Anglesey', lat: 53.191, lon: -4.463, facing: 'west', stationId: '0479A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'cemaes', name: 'Cemaes Bay', location: 'Anglesey', lat: 53.414, lon: -4.448, facing: 'north', stationId: '0477A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // LLŶN PENINSULA
-  { slug: 'nefyn', name: 'Nefyn', location: 'Llŷn Peninsula', lat: 52.939, lon: -4.524, facing: 'north', stationId: '0481', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'porth-dinllaen', name: 'Porth Dinllaen', location: 'Llŷn Peninsula', lat: 52.943, lon: -4.564, facing: 'north', stationId: '0481', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'porth-oer', name: 'Porth Oer (Whistling Sands)', location: 'Llŷn Peninsula', lat: 52.878, lon: -4.681, facing: 'northwest', stationId: '0481A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberdaron', name: 'Aberdaron', location: 'Llŷn Peninsula', lat: 52.804, lon: -4.713, facing: 'southwest', stationId: '0482A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'abersoch', name: 'Abersoch', location: 'Llŷn Peninsula', lat: 52.822, lon: -4.498, facing: 'south', stationId: '0482B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'pwllheli', name: 'Pwllheli', location: 'Llŷn Peninsula', lat: 52.887, lon: -4.398, facing: 'south', stationId: '0483', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'criccieth', name: 'Criccieth', location: 'Llŷn Peninsula', lat: 52.918, lon: -4.232, facing: 'south', stationId: '0483A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'nefyn', name: 'Nefyn', location: 'Llŷn Peninsula', lat: 52.939, lon: -4.524, facing: 'north', stationId: '0481', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'porth-dinllaen', name: 'Porth Dinllaen', location: 'Llŷn Peninsula', lat: 52.943, lon: -4.564, facing: 'north', stationId: '0481', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'porth-oer', name: 'Porth Oer (Whistling Sands)', location: 'Llŷn Peninsula', lat: 52.878, lon: -4.681, facing: 'northwest', stationId: '0481A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'aberdaron', name: 'Aberdaron', location: 'Llŷn Peninsula', lat: 52.804, lon: -4.713, facing: 'southwest', stationId: '0482A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'abersoch', name: 'Abersoch', location: 'Llŷn Peninsula', lat: 52.822, lon: -4.498, facing: 'south', stationId: '0482B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'pwllheli', name: 'Pwllheli', location: 'Llŷn Peninsula', lat: 52.887, lon: -4.398, facing: 'south', stationId: '0483', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'criccieth', name: 'Criccieth', location: 'Llŷn Peninsula', lat: 52.918, lon: -4.232, facing: 'south', stationId: '0483A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // CARDIGAN BAY - NORTH (SNOWDONIA COAST)
-  { slug: 'black-rock-sands', name: 'Black Rock Sands', location: 'Porthmadog', lat: 52.901, lon: -4.171, facing: 'southwest', stationId: '0484', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'harlech', name: 'Harlech Beach', location: 'Gwynedd', lat: 52.858, lon: -4.109, facing: 'west', stationId: '0484', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'barmouth', name: 'Barmouth', location: 'Gwynedd', lat: 52.722, lon: -4.055, facing: 'west', stationId: '0485', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'fairbourne', name: 'Fairbourne', location: 'Gwynedd', lat: 52.697, lon: -4.047, facing: 'west', stationId: '0485', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'tywyn', name: 'Tywyn', location: 'Gwynedd', lat: 52.586, lon: -4.085, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberdovey', name: 'Aberdovey', location: 'Gwynedd', lat: 52.544, lon: -4.057, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'borth', name: 'Borth', location: 'Ceredigion', lat: 52.491, lon: -4.051, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'black-rock-sands', name: 'Black Rock Sands', location: 'Porthmadog', lat: 52.901, lon: -4.171, facing: 'southwest', stationId: '0484', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'harlech', name: 'Harlech Beach', location: 'Gwynedd', lat: 52.858, lon: -4.109, facing: 'west', stationId: '0484', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'barmouth', name: 'Barmouth', location: 'Gwynedd', lat: 52.722, lon: -4.055, facing: 'west', stationId: '0485', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'fairbourne', name: 'Fairbourne', location: 'Gwynedd', lat: 52.697, lon: -4.047, facing: 'west', stationId: '0485', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'tywyn', name: 'Tywyn', location: 'Gwynedd', lat: 52.586, lon: -4.085, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'aberdovey', name: 'Aberdovey', location: 'Gwynedd', lat: 52.544, lon: -4.057, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'borth', name: 'Borth', location: 'Ceredigion', lat: 52.491, lon: -4.051, facing: 'west', stationId: '0486', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // CEREDIGION
-  { slug: 'aberystwyth', name: 'Aberystwyth', location: 'Ceredigion', lat: 52.416, lon: -4.085, facing: 'west', stationId: '0487', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberaeron', name: 'Aberaeron', location: 'Ceredigion', lat: 52.243, lon: -4.259, facing: 'west', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'new-quay', name: 'New Quay', location: 'Ceredigion', lat: 52.215, lon: -4.356, facing: 'northwest', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'llangrannog', name: 'Llangrannog', location: 'Ceredigion', lat: 52.159, lon: -4.472, facing: 'northwest', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'penbryn', name: 'Penbryn', location: 'Ceredigion', lat: 52.144, lon: -4.504, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'tresaith', name: 'Tresaith', location: 'Ceredigion', lat: 52.138, lon: -4.527, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberporth', name: 'Aberporth', location: 'Ceredigion', lat: 52.133, lon: -4.543, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'mwnt', name: 'Mwnt', location: 'Ceredigion', lat: 52.130, lon: -4.628, facing: 'northwest', stationId: '0489', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'poppit-sands', name: 'Poppit Sands', location: 'Pembrokeshire', lat: 52.102, lon: -4.680, facing: 'north', stationId: '0489', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'aberystwyth', name: 'Aberystwyth', location: 'Ceredigion', lat: 52.416, lon: -4.085, facing: 'west', stationId: '0487', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'aberaeron', name: 'Aberaeron', location: 'Ceredigion', lat: 52.243, lon: -4.259, facing: 'west', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'new-quay', name: 'New Quay', location: 'Ceredigion', lat: 52.215, lon: -4.356, facing: 'northwest', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'llangrannog', name: 'Llangrannog', location: 'Ceredigion', lat: 52.159, lon: -4.472, facing: 'northwest', stationId: '0488', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'penbryn', name: 'Penbryn', location: 'Ceredigion', lat: 52.144, lon: -4.504, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'tresaith', name: 'Tresaith', location: 'Ceredigion', lat: 52.138, lon: -4.527, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'aberporth', name: 'Aberporth', location: 'Ceredigion', lat: 52.133, lon: -4.543, facing: 'west', stationId: '0488A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'mwnt', name: 'Mwnt', location: 'Ceredigion', lat: 52.130, lon: -4.628, facing: 'northwest', stationId: '0489', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'poppit-sands', name: 'Poppit Sands', location: 'Pembrokeshire', lat: 52.102, lon: -4.680, facing: 'north', stationId: '0489', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
 
   // PEMBROKESHIRE - NORTH
-  { slug: 'newport-sands', name: 'Newport Sands', location: 'Pembrokeshire', lat: 52.033, lon: -4.865, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'pwllgwaelod', name: 'Pwllgwaelod (Dinas Island)', location: 'Pembrokeshire', lat: 52.018, lon: -4.908, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'fishguard', name: 'Fishguard', location: 'Pembrokeshire', lat: 52.012, lon: -4.973, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'abercastle', name: 'Abercastle', location: 'Pembrokeshire', lat: 51.962, lon: -5.131, facing: 'north', stationId: '0491', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'abereiddy', name: 'Abereiddy', location: 'Pembrokeshire', lat: 51.934, lon: -5.203, facing: 'west', stationId: '0491', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'newport-sands', name: 'Newport Sands', location: 'Pembrokeshire', lat: 52.033, lon: -4.865, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'pwllgwaelod', name: 'Pwllgwaelod (Dinas Island)', location: 'Pembrokeshire', lat: 52.018, lon: -4.908, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'fishguard', name: 'Fishguard', location: 'Pembrokeshire', lat: 52.012, lon: -4.973, facing: 'north', stationId: '0490', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'abercastle', name: 'Abercastle', location: 'Pembrokeshire', lat: 51.962, lon: -5.131, facing: 'north', stationId: '0491', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'abereiddy', name: 'Abereiddy', location: 'Pembrokeshire', lat: 51.934, lon: -5.203, facing: 'west', stationId: '0491', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
 
   // PEMBROKESHIRE - ST DAVIDS PENINSULA
-  { slug: 'whitesands', name: 'Whitesands Bay', location: 'Pembrokeshire', lat: 51.897, lon: -5.296, facing: 'west', stationId: '0492', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'porthselau', name: 'Porthselau', location: 'Pembrokeshire', lat: 51.878, lon: -5.274, facing: 'southwest', stationId: '0492', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'solva', name: 'Solva', location: 'Pembrokeshire', lat: 51.867, lon: -5.185, facing: 'south', stationId: '0492A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'newgale', name: 'Newgale', location: 'Pembrokeshire', lat: 51.838, lon: -5.118, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'whitesands', name: 'Whitesands Bay', location: 'Pembrokeshire', lat: 51.897, lon: -5.296, facing: 'west', stationId: '0492', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'porthselau', name: 'Porthselau', location: 'Pembrokeshire', lat: 51.878, lon: -5.274, facing: 'southwest', stationId: '0492', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'solva', name: 'Solva', location: 'Pembrokeshire', lat: 51.867, lon: -5.185, facing: 'south', stationId: '0492A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'newgale', name: 'Newgale', location: 'Pembrokeshire', lat: 51.838, lon: -5.118, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'druidston', name: 'Druidston Haven', location: 'Pembrokeshire', lat: 51.800, lon: -5.111, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'broad-haven-north', name: 'Broad Haven', location: 'Pembrokeshire', lat: 51.781, lon: -5.108, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'little-haven', name: 'Little Haven', location: 'Pembrokeshire', lat: 51.766, lon: -5.109, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'broad-haven-north', name: 'Broad Haven', location: 'Pembrokeshire', lat: 51.781, lon: -5.108, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'little-haven', name: 'Little Haven', location: 'Pembrokeshire', lat: 51.766, lon: -5.109, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // PEMBROKESHIRE - MARLOES & DALE
-  { slug: 'marloes', name: 'Marloes Sands', location: 'Pembrokeshire', lat: 51.730, lon: -5.221, facing: 'southwest', stationId: '0493', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'martins-haven', name: "Martin's Haven", location: 'Pembrokeshire', lat: 51.733, lon: -5.249, facing: 'west', stationId: '0493', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'westdale', name: 'Westdale Bay', location: 'Pembrokeshire', lat: 51.709, lon: -5.179, facing: 'west', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'dale', name: 'Dale', location: 'Pembrokeshire', lat: 51.702, lon: -5.154, facing: 'east', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'marloes', name: 'Marloes Sands', location: 'Pembrokeshire', lat: 51.730, lon: -5.221, facing: 'southwest', stationId: '0493', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'martins-haven', name: "Martin's Haven", location: 'Pembrokeshire', lat: 51.733, lon: -5.249, facing: 'west', stationId: '0493', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'westdale', name: 'Westdale Bay', location: 'Pembrokeshire', lat: 51.709, lon: -5.179, facing: 'west', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'dale', name: 'Dale', location: 'Pembrokeshire', lat: 51.702, lon: -5.154, facing: 'east', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // PEMBROKESHIRE - SOUTH
-  { slug: 'freshwater-west', name: 'Freshwater West', location: 'Pembrokeshire', lat: 51.653, lon: -5.065, facing: 'west', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'freshwater-east', name: 'Freshwater East', location: 'Pembrokeshire', lat: 51.642, lon: -4.874, facing: 'southeast', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'barafundle', name: 'Barafundle Bay', location: 'Pembrokeshire', lat: 51.627, lon: -4.917, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'broad-haven-south', name: 'Broad Haven South', location: 'Pembrokeshire', lat: 51.620, lon: -4.935, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'stackpole', name: 'Stackpole Quay', location: 'Pembrokeshire', lat: 51.622, lon: -4.899, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'manorbier', name: 'Manorbier', location: 'Pembrokeshire', lat: 51.640, lon: -4.799, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'lydstep', name: 'Lydstep Haven', location: 'Pembrokeshire', lat: 51.649, lon: -4.748, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'freshwater-west', name: 'Freshwater West', location: 'Pembrokeshire', lat: 51.653, lon: -5.065, facing: 'west', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'freshwater-east', name: 'Freshwater East', location: 'Pembrokeshire', lat: 51.642, lon: -4.874, facing: 'southeast', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'barafundle', name: 'Barafundle Bay', location: 'Pembrokeshire', lat: 51.627, lon: -4.917, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'broad-haven-south', name: 'Broad Haven South', location: 'Pembrokeshire', lat: 51.620, lon: -4.935, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'stackpole', name: 'Stackpole Quay', location: 'Pembrokeshire', lat: 51.622, lon: -4.899, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'manorbier', name: 'Manorbier', location: 'Pembrokeshire', lat: 51.640, lon: -4.799, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'lydstep', name: 'Lydstep Haven', location: 'Pembrokeshire', lat: 51.649, lon: -4.748, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
 
   // PEMBROKESHIRE - TENBY
-  { slug: 'tenby-south', name: 'Tenby South Beach', location: 'Pembrokeshire', lat: 51.667, lon: -4.702, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'tenby-north', name: 'Tenby North Beach', location: 'Pembrokeshire', lat: 51.675, lon: -4.696, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'tenby-castle', name: 'Tenby Castle Beach', location: 'Pembrokeshire', lat: 51.672, lon: -4.699, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'saundersfoot', name: 'Saundersfoot', location: 'Pembrokeshire', lat: 51.709, lon: -4.696, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'wisemans-bridge', name: "Wiseman's Bridge", location: 'Pembrokeshire', lat: 51.720, lon: -4.711, facing: 'southeast', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'amroth', name: 'Amroth', location: 'Pembrokeshire', lat: 51.732, lon: -4.651, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'tenby-south', name: 'Tenby South Beach', location: 'Pembrokeshire', lat: 51.667, lon: -4.702, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'tenby-north', name: 'Tenby North Beach', location: 'Pembrokeshire', lat: 51.675, lon: -4.696, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'tenby-castle', name: 'Tenby Castle Beach', location: 'Pembrokeshire', lat: 51.672, lon: -4.699, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'saundersfoot', name: 'Saundersfoot', location: 'Pembrokeshire', lat: 51.709, lon: -4.696, facing: 'east', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'wisemans-bridge', name: "Wiseman's Bridge", location: 'Pembrokeshire', lat: 51.720, lon: -4.711, facing: 'southeast', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'amroth', name: 'Amroth', location: 'Pembrokeshire', lat: 51.732, lon: -4.651, facing: 'south', stationId: '0502', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // CARMARTHENSHIRE
-  { slug: 'pendine', name: 'Pendine Sands', location: 'Carmarthenshire', lat: 51.762, lon: -4.543, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'llansteffan', name: 'Llansteffan', location: 'Carmarthenshire', lat: 51.769, lon: -4.384, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'cefn-sidan', name: 'Cefn Sidan', location: 'Carmarthenshire', lat: 51.706, lon: -4.293, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'pembrey', name: 'Pembrey', location: 'Carmarthenshire', lat: 51.692, lon: -4.269, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'burry-port', name: 'Burry Port', location: 'Carmarthenshire', lat: 51.683, lon: -4.250, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'pendine', name: 'Pendine Sands', location: 'Carmarthenshire', lat: 51.762, lon: -4.543, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'llansteffan', name: 'Llansteffan', location: 'Carmarthenshire', lat: 51.769, lon: -4.384, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'cefn-sidan', name: 'Cefn Sidan', location: 'Carmarthenshire', lat: 51.706, lon: -4.293, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'pembrey', name: 'Pembrey', location: 'Carmarthenshire', lat: 51.692, lon: -4.269, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'burry-port', name: 'Burry Port', location: 'Carmarthenshire', lat: 51.683, lon: -4.250, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // GOWER PENINSULA
-  { slug: 'rhossili', name: 'Rhossili', location: 'Gower Peninsula', lat: 51.568, lon: -4.291, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'llangennith', name: 'Llangennith', location: 'Gower Peninsula', lat: 51.594, lon: -4.295, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'blue-pool', name: 'Blue Pool Bay', location: 'Gower Peninsula', lat: 51.589, lon: -4.274, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'broughton', name: 'Broughton Bay', location: 'Gower Peninsula', lat: 51.610, lon: -4.263, facing: 'northwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'port-eynon', name: 'Port Eynon', location: 'Gower Peninsula', lat: 51.542, lon: -4.210, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'oxwich', name: 'Oxwich Bay', location: 'Gower Peninsula', lat: 51.552, lon: -4.150, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'three-cliffs', name: 'Three Cliffs Bay', location: 'Gower Peninsula', lat: 51.565, lon: -4.110, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'pobbles', name: 'Pobbles Bay', location: 'Gower Peninsula', lat: 51.563, lon: -4.095, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'caswell', name: 'Caswell Bay', location: 'Gower Peninsula', lat: 51.570, lon: -4.030, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'langland', name: 'Langland Bay', location: 'Gower Peninsula', lat: 51.568, lon: -4.009, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'limeslade', name: 'Limeslade Bay', location: 'Gower Peninsula', lat: 51.567, lon: -3.983, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'bracelet-bay', name: 'Bracelet Bay', location: 'Gower Peninsula', lat: 51.566, lon: -3.978, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'rhossili', name: 'Rhossili', location: 'Gower Peninsula', lat: 51.568, lon: -4.291, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'llangennith', name: 'Llangennith', location: 'Gower Peninsula', lat: 51.594, lon: -4.295, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'blue-pool', name: 'Blue Pool Bay', location: 'Gower Peninsula', lat: 51.589, lon: -4.274, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'broughton', name: 'Broughton Bay', location: 'Gower Peninsula', lat: 51.610, lon: -4.263, facing: 'northwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'port-eynon', name: 'Port Eynon', location: 'Gower Peninsula', lat: 51.542, lon: -4.210, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'oxwich', name: 'Oxwich Bay', location: 'Gower Peninsula', lat: 51.552, lon: -4.150, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'three-cliffs', name: 'Three Cliffs Bay', location: 'Gower Peninsula', lat: 51.565, lon: -4.110, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'pobbles', name: 'Pobbles Bay', location: 'Gower Peninsula', lat: 51.563, lon: -4.095, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'caswell', name: 'Caswell Bay', location: 'Gower Peninsula', lat: 51.570, lon: -4.030, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'langland', name: 'Langland Bay', location: 'Gower Peninsula', lat: 51.568, lon: -4.009, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'limeslade', name: 'Limeslade Bay', location: 'Gower Peninsula', lat: 51.567, lon: -3.983, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'bracelet-bay', name: 'Bracelet Bay', location: 'Gower Peninsula', lat: 51.566, lon: -3.978, facing: 'south', stationId: '0508', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
   // SWANSEA BAY
-  { slug: 'swansea', name: 'Swansea Bay', location: 'Swansea', lat: 51.617, lon: -3.968, facing: 'south', stationId: '0509', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'aberavon', name: 'Aberavon', location: 'Port Talbot', lat: 51.583, lon: -3.816, facing: 'southwest', stationId: '0510', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'swansea', name: 'Swansea Bay', location: 'Swansea', lat: 51.617, lon: -3.968, facing: 'south', stationId: '0509', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'aberavon', name: 'Aberavon', location: 'Port Talbot', lat: 51.583, lon: -3.816, facing: 'southwest', stationId: '0510', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
 
   // SOUTH WALES - BRIDGEND TO CARDIFF
-  { slug: 'porthcawl', name: 'Porthcawl (Coney Beach)', location: 'Bridgend', lat: 51.478, lon: -3.691, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'rest-bay', name: 'Rest Bay', location: 'Bridgend', lat: 51.491, lon: -3.718, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'trecco-bay', name: 'Trecco Bay', location: 'Bridgend', lat: 51.4817, lon: -3.6972, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'pink-bay', name: 'Pink Bay (Sker)', location: 'Bridgend', lat: 51.504, lon: -3.748, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'ogmore-by-sea', name: 'Ogmore-by-Sea', location: 'Vale of Glamorgan', lat: 51.460, lon: -3.635, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'southerndown', name: 'Southerndown (Dunraven Bay)', location: 'Vale of Glamorgan', lat: 51.446, lon: -3.606, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'nash-point', name: 'Nash Point', location: 'Vale of Glamorgan', lat: 51.403, lon: -3.562, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'llantwit-major', name: 'Llantwit Major', location: 'Vale of Glamorgan', lat: 51.395, lon: -3.505, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'barry-island', name: 'Barry Island', location: 'Vale of Glamorgan', lat: 51.390, lon: -3.273, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'whitmore-bay', name: 'Whitmore Bay', location: 'Vale of Glamorgan', lat: 51.388, lon: -3.263, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'cold-knap', name: 'Cold Knap', location: 'Vale of Glamorgan', lat: 51.400, lon: -3.281, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
-  { slug: 'penarth', name: 'Penarth', location: 'Vale of Glamorgan', lat: 51.431, lon: -3.172, facing: 'southeast', stationId: '0514', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'porthcawl', name: 'Porthcawl (Coney Beach)', location: 'Bridgend', lat: 51.478, lon: -3.691, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'rest-bay', name: 'Rest Bay', location: 'Bridgend', lat: 51.491, lon: -3.718, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'trecco-bay', name: 'Trecco Bay', location: 'Bridgend', lat: 51.4817, lon: -3.6972, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'pink-bay', name: 'Pink Bay (Sker)', location: 'Bridgend', lat: 51.504, lon: -3.748, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'ogmore-by-sea', name: 'Ogmore-by-Sea', location: 'Vale of Glamorgan', lat: 51.460, lon: -3.635, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'southerndown', name: 'Southerndown (Dunraven Bay)', location: 'Vale of Glamorgan', lat: 51.446, lon: -3.606, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'nash-point', name: 'Nash Point', location: 'Vale of Glamorgan', lat: 51.403, lon: -3.562, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'llantwit-major', name: 'Llantwit Major', location: 'Vale of Glamorgan', lat: 51.395, lon: -3.505, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'barry-island', name: 'Barry Island', location: 'Vale of Glamorgan', lat: 51.390, lon: -3.273, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'whitmore-bay', name: 'Whitmore Bay', location: 'Vale of Glamorgan', lat: 51.388, lon: -3.263, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'cold-knap', name: 'Cold Knap', location: 'Vale of Glamorgan', lat: 51.400, lon: -3.281, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'penarth', name: 'Penarth', location: 'Vale of Glamorgan', lat: 51.431, lon: -3.172, facing: 'southeast', stationId: '0514', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
 
   // CORNWALL - SOUTH
-  { slug: 'sennen', name: 'Sennen Cove', location: 'Cornwall', lat: 50.071, lon: -5.697, facing: 'west', stationId: '0548', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'porthcurno', name: 'Porthcurno', location: 'Cornwall', lat: 50.043, lon: -5.655, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'porthchapel', name: 'Porthchapel', location: 'Cornwall', lat: 50.042, lon: -5.637, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'lamorna', name: 'Lamorna Cove', location: 'Cornwall', lat: 50.059, lon: -5.567, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'penzance', name: 'Penzance', location: 'Cornwall', lat: 50.116, lon: -5.533, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'marazion', name: 'Marazion', location: 'Cornwall', lat: 50.125, lon: -5.469, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'porthleven', name: 'Porthleven', location: 'Cornwall', lat: 50.085, lon: -5.316, facing: 'southwest', stationId: '0002A', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'kynance', name: 'Kynance Cove', location: 'Cornwall', lat: 49.975, lon: -5.232, facing: 'west', stationId: '0003', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'coverack', name: 'Coverack', location: 'Cornwall', lat: 50.024, lon: -5.096, facing: 'east', stationId: '0004', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'falmouth-gyllyngvase', name: 'Gyllyngvase Beach', location: 'Cornwall', lat: 50.143, lon: -5.070, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'swanpool', name: 'Swanpool', location: 'Cornwall', lat: 50.139, lon: -5.080, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'maenporth', name: 'Maenporth', location: 'Cornwall', lat: 50.127, lon: -5.094, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'mevagissey', name: 'Mevagissey', location: 'Cornwall', lat: 50.269, lon: -4.787, facing: 'southeast', stationId: '0007', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'fowey', name: 'Fowey (Readymoney Cove)', location: 'Cornwall', lat: 50.331, lon: -4.635, facing: 'south', stationId: '0008', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'looe', name: 'Looe', location: 'Cornwall', lat: 50.353, lon: -4.452, facing: 'south', stationId: '0011', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'whitsand', name: 'Whitsand Bay', location: 'Cornwall', lat: 50.341, lon: -4.248, facing: 'south', stationId: '0012', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
+  { slug: 'sennen', name: 'Sennen Cove', location: 'Cornwall', lat: 50.071, lon: -5.697, facing: 'west', stationId: '0548', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'porthcurno', name: 'Porthcurno', location: 'Cornwall', lat: 50.043, lon: -5.655, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'porthchapel', name: 'Porthchapel', location: 'Cornwall', lat: 50.042, lon: -5.637, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'lamorna', name: 'Lamorna Cove', location: 'Cornwall', lat: 50.059, lon: -5.567, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'penzance', name: 'Penzance', location: 'Cornwall', lat: 50.116, lon: -5.533, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'marazion', name: 'Marazion', location: 'Cornwall', lat: 50.125, lon: -5.469, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'porthleven', name: 'Porthleven', location: 'Cornwall', lat: 50.085, lon: -5.316, facing: 'southwest', stationId: '0002A', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'kynance', name: 'Kynance Cove', location: 'Cornwall', lat: 49.975, lon: -5.232, facing: 'west', stationId: '0003', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'coverack', name: 'Coverack', location: 'Cornwall', lat: 50.024, lon: -5.096, facing: 'east', stationId: '0004', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'falmouth-gyllyngvase', name: 'Gyllyngvase Beach', location: 'Cornwall', lat: 50.143, lon: -5.070, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'swanpool', name: 'Swanpool', location: 'Cornwall', lat: 50.139, lon: -5.080, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'maenporth', name: 'Maenporth', location: 'Cornwall', lat: 50.127, lon: -5.094, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'mevagissey', name: 'Mevagissey', location: 'Cornwall', lat: 50.269, lon: -4.787, facing: 'southeast', stationId: '0007', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'fowey', name: 'Fowey (Readymoney Cove)', location: 'Cornwall', lat: 50.331, lon: -4.635, facing: 'south', stationId: '0008', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'looe', name: 'Looe', location: 'Cornwall', lat: 50.353, lon: -4.452, facing: 'south', stationId: '0011', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'whitsand', name: 'Whitsand Bay', location: 'Cornwall', lat: 50.341, lon: -4.248, facing: 'south', stationId: '0012', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
 
   // CORNWALL - NORTH
-  { slug: 'porthmeor', name: "Porthmeor (St Ives)", location: 'Cornwall', lat: 50.217, lon: -5.483, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'hayle', name: 'Hayle (Towans)', location: 'Cornwall', lat: 50.207, lon: -5.425, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'gwithian', name: 'Gwithian', location: 'Cornwall', lat: 50.223, lon: -5.393, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'perranporth', name: 'Perranporth', location: 'Cornwall', lat: 50.346, lon: -5.156, facing: 'west', stationId: '0546A', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'fistral', name: 'Fistral Beach', location: 'Newquay', lat: 50.416, lon: -5.104, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'newquay-great-western', name: 'Great Western Beach', location: 'Newquay', lat: 50.415, lon: -5.081, facing: 'north', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'watergate-bay', name: 'Watergate Bay', location: 'Cornwall', lat: 50.446, lon: -5.045, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'constantine', name: 'Constantine Bay', location: 'Cornwall', lat: 50.530, lon: -4.973, facing: 'west', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'harlyn', name: 'Harlyn Bay', location: 'Cornwall', lat: 50.548, lon: -4.935, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'padstow', name: 'Padstow', location: 'Cornwall', lat: 50.541, lon: -4.936, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'polzeath', name: 'Polzeath', location: 'Cornwall', lat: 50.573, lon: -4.915, facing: 'northwest', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'bude', name: 'Bude (Summerleaze)', location: 'Cornwall', lat: 50.832, lon: -4.553, facing: 'west', stationId: '0543', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
+  { slug: 'porthmeor', name: "Porthmeor (St Ives)", location: 'Cornwall', lat: 50.217, lon: -5.483, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'hayle', name: 'Hayle (Towans)', location: 'Cornwall', lat: 50.207, lon: -5.425, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'gwithian', name: 'Gwithian', location: 'Cornwall', lat: 50.223, lon: -5.393, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'perranporth', name: 'Perranporth', location: 'Cornwall', lat: 50.346, lon: -5.156, facing: 'west', stationId: '0546A', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'fistral', name: 'Fistral Beach', location: 'Newquay', lat: 50.416, lon: -5.104, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'newquay-great-western', name: 'Great Western Beach', location: 'Newquay', lat: 50.415, lon: -5.081, facing: 'north', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'watergate-bay', name: 'Watergate Bay', location: 'Cornwall', lat: 50.446, lon: -5.045, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'constantine', name: 'Constantine Bay', location: 'Cornwall', lat: 50.530, lon: -4.973, facing: 'west', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'harlyn', name: 'Harlyn Bay', location: 'Cornwall', lat: 50.548, lon: -4.935, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'padstow', name: 'Padstow', location: 'Cornwall', lat: 50.541, lon: -4.936, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'polzeath', name: 'Polzeath', location: 'Cornwall', lat: 50.573, lon: -4.915, facing: 'northwest', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'bude', name: 'Bude (Summerleaze)', location: 'Cornwall', lat: 50.832, lon: -4.553, facing: 'west', stationId: '0543', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
 
   // DEVON
-  { slug: 'woolacombe', name: 'Woolacombe', location: 'Devon', lat: 51.166, lon: -4.210, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'croyde', name: 'Croyde Bay', location: 'Devon', lat: 51.134, lon: -4.236, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'saunton-sands', name: 'Saunton Sands', location: 'Devon', lat: 51.113, lon: -4.224, facing: 'west', stationId: '0537', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'westward-ho', name: 'Westward Ho!', location: 'Devon', lat: 51.039, lon: -4.235, facing: 'northwest', stationId: '0536', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'salcombe', name: 'Salcombe (North Sands)', location: 'Devon', lat: 50.230, lon: -3.773, facing: 'south', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'bantham', name: 'Bantham', location: 'Devon', lat: 50.277, lon: -3.867, facing: 'southwest', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'dartmouth', name: 'Dartmouth (Castle Cove)', location: 'Devon', lat: 50.345, lon: -3.575, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'blackpool-sands', name: 'Blackpool Sands', location: 'Devon', lat: 50.310, lon: -3.611, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'torquay', name: 'Torquay (Meadfoot Beach)', location: 'Devon', lat: 50.458, lon: -3.512, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'oddicombe', name: 'Oddicombe', location: 'Devon', lat: 50.475, lon: -3.510, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'paignton', name: 'Paignton', location: 'Devon', lat: 50.4361, lon: -3.5619, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'teignmouth', name: 'Teignmouth', location: 'Devon', lat: 50.543, lon: -3.500, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'dawlish', name: 'Dawlish', location: 'Devon', lat: 50.580, lon: -3.467, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'exmouth', name: 'Exmouth', location: 'Devon', lat: 50.614, lon: -3.407, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'sidmouth', name: 'Sidmouth', location: 'Devon', lat: 50.677, lon: -3.239, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
-  { slug: 'seaton', name: 'Seaton', location: 'Devon', lat: 50.704, lon: -3.072, facing: 'south', stationId: '0028', region: 'england', company: 'south-west-water', companyName: 'South West Water' },
+  { slug: 'woolacombe', name: 'Woolacombe', location: 'Devon', lat: 51.166, lon: -4.210, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'croyde', name: 'Croyde Bay', location: 'Devon', lat: 51.134, lon: -4.236, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'saunton-sands', name: 'Saunton Sands', location: 'Devon', lat: 51.113, lon: -4.224, facing: 'west', stationId: '0537', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'westward-ho', name: 'Westward Ho!', location: 'Devon', lat: 51.039, lon: -4.235, facing: 'northwest', stationId: '0536', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'salcombe', name: 'Salcombe (North Sands)', location: 'Devon', lat: 50.230, lon: -3.773, facing: 'south', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'bantham', name: 'Bantham', location: 'Devon', lat: 50.277, lon: -3.867, facing: 'southwest', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'dartmouth', name: 'Dartmouth (Castle Cove)', location: 'Devon', lat: 50.345, lon: -3.575, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'blackpool-sands', name: 'Blackpool Sands', location: 'Devon', lat: 50.310, lon: -3.611, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'torquay', name: 'Torquay (Meadfoot Beach)', location: 'Devon', lat: 50.458, lon: -3.512, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'oddicombe', name: 'Oddicombe', location: 'Devon', lat: 50.475, lon: -3.510, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'paignton', name: 'Paignton', location: 'Devon', lat: 50.4361, lon: -3.5619, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'teignmouth', name: 'Teignmouth', location: 'Devon', lat: 50.543, lon: -3.500, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'dawlish', name: 'Dawlish', location: 'Devon', lat: 50.580, lon: -3.467, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'exmouth', name: 'Exmouth', location: 'Devon', lat: 50.614, lon: -3.407, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'sidmouth', name: 'Sidmouth', location: 'Devon', lat: 50.677, lon: -3.239, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'seaton', name: 'Seaton', location: 'Devon', lat: 50.704, lon: -3.072, facing: 'south', stationId: '0028', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
 
   // DORSET
-  { slug: 'lyme-regis', name: 'Lyme Regis', location: 'Dorset', lat: 50.720, lon: -2.938, facing: 'south', stationId: '0028', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'charmouth', name: 'Charmouth', location: 'Dorset', lat: 50.733, lon: -2.905, facing: 'south', stationId: '0028', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'west-bay', name: 'West Bay', location: 'Dorset', lat: 50.710, lon: -2.762, facing: 'south', stationId: '0029', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'chesil-beach', name: 'Chesil Beach', location: 'Dorset', lat: 50.617, lon: -2.548, facing: 'south', stationId: '0030', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'weymouth', name: 'Weymouth', location: 'Dorset', lat: 50.608, lon: -2.454, facing: 'south', stationId: '0033', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'lulworth-cove', name: 'Lulworth Cove', location: 'Dorset', lat: 50.619, lon: -2.249, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'durdle-door', name: 'Durdle Door', location: 'Dorset', lat: 50.622, lon: -2.276, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'swanage', name: 'Swanage', location: 'Dorset', lat: 50.610, lon: -1.953, facing: 'east', stationId: '0035', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'studland', name: 'Studland Bay', location: 'Dorset', lat: 50.652, lon: -1.935, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'sandbanks', name: 'Sandbanks', location: 'Dorset', lat: 50.688, lon: -1.945, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'bournemouth', name: 'Bournemouth', location: 'Dorset', lat: 50.716, lon: -1.874, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'boscombe', name: 'Boscombe', location: 'Dorset', lat: 50.718, lon: -1.842, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
+  { slug: 'lyme-regis', name: 'Lyme Regis', location: 'Dorset', lat: 50.720, lon: -2.938, facing: 'south', stationId: '0028', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'charmouth', name: 'Charmouth', location: 'Dorset', lat: 50.733, lon: -2.905, facing: 'south', stationId: '0028', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'west-bay', name: 'West Bay', location: 'Dorset', lat: 50.710, lon: -2.762, facing: 'south', stationId: '0029', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'chesil-beach', name: 'Chesil Beach', location: 'Dorset', lat: 50.617, lon: -2.548, facing: 'south', stationId: '0030', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
+  { slug: 'weymouth', name: 'Weymouth', location: 'Dorset', lat: 50.608, lon: -2.454, facing: 'south', stationId: '0033', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'lulworth-cove', name: 'Lulworth Cove', location: 'Dorset', lat: 50.619, lon: -2.249, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
+  { slug: 'durdle-door', name: 'Durdle Door', location: 'Dorset', lat: 50.622, lon: -2.276, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
+  { slug: 'swanage', name: 'Swanage', location: 'Dorset', lat: 50.610, lon: -1.953, facing: 'east', stationId: '0035', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'studland', name: 'Studland Bay', location: 'Dorset', lat: 50.652, lon: -1.935, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'sandbanks', name: 'Sandbanks', location: 'Dorset', lat: 50.688, lon: -1.945, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'bournemouth', name: 'Bournemouth', location: 'Dorset', lat: 50.716, lon: -1.874, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'frequent' },
+  { slug: 'boscombe', name: 'Boscombe', location: 'Dorset', lat: 50.718, lon: -1.842, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'frequent' },
 
   // HAMPSHIRE / ISLE OF WIGHT
-  { slug: 'christchurch', name: 'Christchurch (Avon Beach)', location: 'Dorset', lat: 50.727, lon: -1.750, facing: 'south', stationId: '0038', region: 'england', company: 'wessex-water', companyName: 'Wessex Water' },
-  { slug: 'highcliffe', name: 'Highcliffe', location: 'Hampshire', lat: 50.733, lon: -1.719, facing: 'south', stationId: '0038', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'milford-on-sea', name: 'Milford on Sea', location: 'Hampshire', lat: 50.722, lon: -1.593, facing: 'south', stationId: '0039', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'ventnor', name: 'Ventnor', location: 'Isle of Wight', lat: 50.593, lon: -1.202, facing: 'south', stationId: '0051', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'shanklin', name: 'Shanklin', location: 'Isle of Wight', lat: 50.631, lon: -1.178, facing: 'east', stationId: '0053', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'sandown', name: 'Sandown', location: 'Isle of Wight', lat: 50.654, lon: -1.152, facing: 'east', stationId: '0053', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'freshwater-bay-iow', name: 'Freshwater Bay', location: 'Isle of Wight', lat: 50.667, lon: -1.518, facing: 'southwest', stationId: '0048', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'ryde', name: 'Ryde', location: 'Isle of Wight', lat: 50.735, lon: -1.162, facing: 'north', stationId: '0058', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
+  { slug: 'christchurch', name: 'Christchurch (Avon Beach)', location: 'Dorset', lat: 50.727, lon: -1.750, facing: 'south', stationId: '0038', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'highcliffe', name: 'Highcliffe', location: 'Hampshire', lat: 50.733, lon: -1.719, facing: 'south', stationId: '0038', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'milford-on-sea', name: 'Milford on Sea', location: 'Hampshire', lat: 50.722, lon: -1.593, facing: 'south', stationId: '0039', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'ventnor', name: 'Ventnor', location: 'Isle of Wight', lat: 50.593, lon: -1.202, facing: 'south', stationId: '0051', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'shanklin', name: 'Shanklin', location: 'Isle of Wight', lat: 50.631, lon: -1.178, facing: 'east', stationId: '0053', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'sandown', name: 'Sandown', location: 'Isle of Wight', lat: 50.654, lon: -1.152, facing: 'east', stationId: '0053', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'freshwater-bay-iow', name: 'Freshwater Bay', location: 'Isle of Wight', lat: 50.667, lon: -1.518, facing: 'southwest', stationId: '0048', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'rare' },
+  { slug: 'ryde', name: 'Ryde', location: 'Isle of Wight', lat: 50.735, lon: -1.162, facing: 'north', stationId: '0058', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
 
   // SUSSEX
-  { slug: 'west-wittering', name: 'West Wittering', location: 'West Sussex', lat: 50.772, lon: -0.885, facing: 'south', stationId: '0068', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'bracklesham', name: 'Bracklesham', location: 'West Sussex', lat: 50.770, lon: -0.849, facing: 'south', stationId: '0069', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'bognor-regis', name: 'Bognor Regis', location: 'West Sussex', lat: 50.781, lon: -0.677, facing: 'south', stationId: '0073', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'littlehampton', name: 'Littlehampton', location: 'West Sussex', lat: 50.800, lon: -0.548, facing: 'south', stationId: '0074', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'worthing', name: 'Worthing', location: 'West Sussex', lat: 50.808, lon: -0.372, facing: 'south', stationId: '0075', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'shoreham', name: 'Shoreham-by-Sea', location: 'West Sussex', lat: 50.828, lon: -0.271, facing: 'south', stationId: '0081', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'hove', name: 'Hove', location: 'East Sussex', lat: 50.824, lon: -0.170, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'brighton', name: 'Brighton Beach', location: 'East Sussex', lat: 50.819, lon: -0.137, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'saltdean', name: 'Saltdean', location: 'East Sussex', lat: 50.800, lon: -0.038, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'newhaven', name: 'Newhaven', location: 'East Sussex', lat: 50.783, lon: 0.051, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'seaford', name: 'Seaford', location: 'East Sussex', lat: 50.771, lon: 0.103, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'birling-gap', name: 'Birling Gap', location: 'East Sussex', lat: 50.744, lon: 0.202, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'eastbourne', name: 'Eastbourne', location: 'East Sussex', lat: 50.766, lon: 0.290, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'bexhill', name: 'Bexhill-on-Sea', location: 'East Sussex', lat: 50.837, lon: 0.475, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'hastings', name: 'Hastings', location: 'East Sussex', lat: 50.853, lon: 0.589, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
-  { slug: 'camber', name: 'Camber Sands', location: 'East Sussex', lat: 50.932, lon: 0.805, facing: 'south', stationId: '0086', region: 'england', company: 'southern-water', companyName: 'Southern Water' },
+  { slug: 'west-wittering', name: 'West Wittering', location: 'West Sussex', lat: 50.772, lon: -0.885, facing: 'south', stationId: '0068', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'bracklesham', name: 'Bracklesham', location: 'West Sussex', lat: 50.770, lon: -0.849, facing: 'south', stationId: '0069', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'bognor-regis', name: 'Bognor Regis', location: 'West Sussex', lat: 50.781, lon: -0.677, facing: 'south', stationId: '0073', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'littlehampton', name: 'Littlehampton', location: 'West Sussex', lat: 50.800, lon: -0.548, facing: 'south', stationId: '0074', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'worthing', name: 'Worthing', location: 'West Sussex', lat: 50.808, lon: -0.372, facing: 'south', stationId: '0075', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'shoreham', name: 'Shoreham-by-Sea', location: 'West Sussex', lat: 50.828, lon: -0.271, facing: 'south', stationId: '0081', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'hove', name: 'Hove', location: 'East Sussex', lat: 50.824, lon: -0.170, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'brighton', name: 'Brighton Beach', location: 'East Sussex', lat: 50.819, lon: -0.137, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'saltdean', name: 'Saltdean', location: 'East Sussex', lat: 50.800, lon: -0.038, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'newhaven', name: 'Newhaven', location: 'East Sussex', lat: 50.783, lon: 0.051, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'seaford', name: 'Seaford', location: 'East Sussex', lat: 50.771, lon: 0.103, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'birling-gap', name: 'Birling Gap', location: 'East Sussex', lat: 50.744, lon: 0.202, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'eastbourne', name: 'Eastbourne', location: 'East Sussex', lat: 50.766, lon: 0.290, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'bexhill', name: 'Bexhill-on-Sea', location: 'East Sussex', lat: 50.837, lon: 0.475, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'hastings', name: 'Hastings', location: 'East Sussex', lat: 50.853, lon: 0.589, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'camber', name: 'Camber Sands', location: 'East Sussex', lat: 50.932, lon: 0.805, facing: 'south', stationId: '0086', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
 ];
 
 // ============================================
@@ -478,22 +508,38 @@ async function fetchSewageStatus(beach) {
       );
       
       if (activeOverflow) {
-        return { status: 'active', icon: '✗', source: 'Welsh Water' };
+        return { status: 'active', icon: '✗', source: 'Welsh Water', hoursSince: 0 };
       }
       
+      // Context-aware clearance logic
+      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
       const now = Date.now();
-      const recentOverflow = beachOverflows.find(f => {
-        const stopTime = f.attributes.stop_date_time_discharge;
-        if (!stopTime) return false;
+      
+      let mostRecentDischarge = null;
+      let hoursSinceMostRecent = Infinity;
+      
+      for (const overflow of beachOverflows) {
+        const stopTime = overflow.attributes.stop_date_time_discharge;
+        if (!stopTime) continue;
         
         const stoppedAt = new Date(stopTime).getTime();
         const hoursSince = (now - stoppedAt) / 3600000;
         
-        return hoursSince < 48;
-      });
+        if (hoursSince < hoursSinceMostRecent) {
+          hoursSinceMostRecent = hoursSince;
+          mostRecentDischarge = overflow;
+        }
+      }
       
-      if (recentOverflow) {
-        return { status: 'recent', icon: '!', source: 'Welsh Water' };
+      if (mostRecentDischarge && hoursSinceMostRecent < context.clearanceHours) {
+        return { 
+          status: 'recent', 
+          icon: '!', 
+          source: 'Welsh Water',
+          hoursSince: Math.round(hoursSinceMostRecent),
+          clearanceHours: context.clearanceHours,
+          overflowContext: beach.overflowContext
+        };
       }
       
       return { status: 'clear', icon: '✓', source: 'Welsh Water' };
@@ -542,8 +588,38 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     
     // AMBER conditions
     if (sewage.status === 'recent') {
-      status = 'amber'; statusText = 'check';
-      parts.push('**Sewage discharge ended 24-48 hours ago.** Water should be clear but some prefer to wait.');
+      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
+      const hoursSince = sewage.hoursSince || 0;
+      
+      // Very recent (< 6 hours) = RED regardless of beach type
+      if (hoursSince < 6) {
+        return { status: 'red', statusText: 'wait', recommendation: `**Very recent sewage discharge** (${hoursSince} hours ago). Wait a few more hours.` };
+      }
+      
+      // Recent but clearing (6-24 hours)
+      if (hoursSince < 24) {
+        status = 'amber'; 
+        statusText = 'check';
+        
+        if (beach.overflowContext === 'frequent') {
+          parts.push(`**Discharge ${hoursSince} hours ago.** ${context.description}. Water clearing - this beach has UV treatment and regular testing.`);
+        } else {
+          parts.push(`**Discharge ${hoursSince} hours ago.** Water should be clearing. Some prefer to wait longer.`);
+        }
+      }
+      // Older discharge (24hr+) - context matters
+      else if (hoursSince >= 24) {
+        if (beach.overflowContext === 'frequent') {
+          // Urban beach with treatment - likely fine after 24 hours
+          // Don't add warning, handle in "sewage clear" section below
+          sewage.wasRecent = true; // Flag for informational note
+        } else {
+          // Moderate/rare beach - still cautious
+          status = 'amber';
+          statusText = 'check';
+          parts.push(`**Discharge yesterday** (${hoursSince} hours ago). ${context.messageGreen}.`);
+        }
+      }
     }
     if (marine.waveHeight >= 1.5) {
       if (status === 'green') status = 'amber';
@@ -577,7 +653,14 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       else if (weather.windSpeed < 30) parts.push('Moderate breeze.');
       
       // Sewage
-      if (sewage.status === 'clear') parts.push('No sewage alerts.');
+      if (sewage.status === 'clear') {
+        if (sewage.wasRecent) {
+          // Urban beach had discharge 24hr+ ago but we're treating as clear
+          parts.push(`Discharge yesterday - ${OVERFLOW_CONTEXTS[beach.overflowContext].description}. Water quality rated excellent by NRW.`);
+        } else {
+          parts.push('No sewage alerts.');
+        }
+      }
       
       // Sunrise/sunset context
       const isEastFacing = beach.facing && ['east', 'northeast', 'southeast'].includes(beach.facing);
@@ -614,10 +697,41 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     }
     
   } else if (mode === 'dipping') {
-    // RED conditions
-    if (sewage.status === 'active' || sewage.status === 'recent') {
-      return { status: 'red', statusText: 'wait', recommendation: '**Sewage discharge recently.** Wait 48 hours for dipping.' };
+    // RED conditions - dipping is stricter due to immersion risk
+    if (sewage.status === 'active') {
+      return { status: 'red', statusText: 'avoid', recommendation: '**Active sewage discharge.** Dipping not recommended.' };
     }
+    
+    // Recent discharge - context-aware handling
+    if (sewage.status === 'recent') {
+      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
+      const hoursSince = sewage.hoursSince || 0;
+      
+      // Very recent (< 12 hours) = RED for dipping (stricter than swimming)
+      if (hoursSince < 12) {
+        return { status: 'red', statusText: 'wait', recommendation: `**Recent sewage discharge** (${hoursSince} hours ago). Immersion risk - wait longer for dipping.` };
+      }
+      
+      // 12-24 hours - AMBER for all
+      if (hoursSince < 24) {
+        status = 'amber';
+        statusText = 'caution';
+        parts.push(`**Discharge ${hoursSince} hours ago.** Water clearing but dipping means full immersion - use your judgment.`);
+      }
+      // 24hr+ - depends on context
+      else {
+        if (beach.overflowContext === 'frequent') {
+          // Urban beach - likely okay after 24 hours
+          sewage.wasRecent = true; // Flag for informational note
+        } else {
+          // Moderate/rare - still cautious for dipping
+          status = 'amber';
+          statusText = 'check';
+          parts.push(`**Discharge yesterday** (${hoursSince} hours ago). ${context.messageAmber}.`);
+        }
+      }
+    }
+    
     if (weather.feelsLike < 0) {
       return { status: 'red', statusText: 'dangerous', recommendation: `**Severe hypothermia risk.** Feels like ${Math.round(weather.feelsLike)}°C during recovery.` };
     }
@@ -689,7 +803,14 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       }
       
       // Water quality
-      if (sewage.status === 'clear') parts.push('Water quality clear.');
+      if (sewage.status === 'clear') {
+        if (sewage.wasRecent) {
+          // Urban beach had discharge 24hr+ ago but treating as clear
+          parts.push(`Discharge yesterday - ${OVERFLOW_CONTEXTS[beach.overflowContext].description}. Water quality rated excellent.`);
+        } else {
+          parts.push('Water quality clear.');
+        }
+      }
       
       // Safe time guidance
       if (marine.seaTemp <= 8) {
