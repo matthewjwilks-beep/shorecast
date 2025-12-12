@@ -1,10 +1,10 @@
 // ============================================
 // SHORECAST BACKEND - Complete index.js
 // ============================================
-// Last Updated: 7 December 2025
+// Last Updated: 12 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Added debug-marine endpoint for sea temperature diagnosis
+// UPDATED: Enhanced weather integration throughout all recommendations
 
 const express = require('express');
 const cors = require('cors');
@@ -150,7 +150,7 @@ const BEACHES = [
   { slug: 'porthselau', name: 'Porthselau', location: 'Pembrokeshire', lat: 51.878, lon: -5.274, facing: 'southwest', stationId: '0492', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'solva', name: 'Solva', location: 'Pembrokeshire', lat: 51.867, lon: -5.185, facing: 'south', stationId: '0492A', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'newgale', name: 'Newgale', location: 'Pembrokeshire', lat: 51.838, lon: -5.118, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
-  { slug: 'druidston', name: 'Druidston Haven', location: 'Pembrokeshire', lat: 51.800, lon: -5.111, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water' },
+  { slug: 'druidston', name: 'Druidston Haven', location: 'Pembrokeshire', lat: 51.800, lon: -5.111, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'broad-haven-north', name: 'Broad Haven', location: 'Pembrokeshire', lat: 51.781, lon: -5.108, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'little-haven', name: 'Little Haven', location: 'Pembrokeshire', lat: 51.766, lon: -5.109, facing: 'west', stationId: '0492B', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
 
@@ -162,7 +162,7 @@ const BEACHES = [
 
   // PEMBROKESHIRE - SOUTH
   { slug: 'freshwater-west', name: 'Freshwater West', location: 'Pembrokeshire', lat: 51.653, lon: -5.065, facing: 'west', stationId: '0495', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
-  { slug: 'freshwater-east', name: 'Freshwater East', location: 'Pembrokeshire', lat: 51.642, lon: -4.874, facing: 'southeast', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'freshwater-east', name: 'Freshwater East', location: 'Pembrokeshire', lat: 51.642, lon: -4.874, facing: 'southeast', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'barafundle', name: 'Barafundle Bay', location: 'Pembrokeshire', lat: 51.627, lon: -4.917, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'broad-haven-south', name: 'Broad Haven South', location: 'Pembrokeshire', lat: 51.620, lon: -4.935, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'stackpole', name: 'Stackpole Quay', location: 'Pembrokeshire', lat: 51.622, lon: -4.899, facing: 'south', stationId: '0501', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
@@ -179,12 +179,12 @@ const BEACHES = [
 
   // CARMARTHENSHIRE
   { slug: 'pendine', name: 'Pendine Sands', location: 'Carmarthenshire', lat: 51.762, lon: -4.543, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
-  { slug: 'llansteffan', name: 'Llansteffan', location: 'Carmarthenshire', lat: 51.769, lon: -4.384, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
-  { slug: 'cefn-sidan', name: 'Cefn Sidan', location: 'Carmarthenshire', lat: 51.706, lon: -4.293, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
+  { slug: 'llansteffan', name: 'Llansteffan', location: 'Carmarthenshire', lat: 51.769, lon: -4.384, facing: 'south', stationId: '0504', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'cefn-sidan', name: 'Cefn Sidan', location: 'Carmarthenshire', lat: 51.706, lon: -4.293, facing: 'southwest', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'pembrey', name: 'Pembrey', location: 'Carmarthenshire', lat: 51.692, lon: -4.269, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
-  { slug: 'burry-port', name: 'Burry Port', location: 'Carmarthenshire', lat: 51.683, lon: -4.250, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'burry-port', name: 'Burry Port', location: 'Carmarthenshire', lat: 51.683, lon: -4.250, facing: 'south', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
 
-  // GOWER PENINSULA
+  // GOWER PENINSULA - CORRECTED
   { slug: 'rhossili', name: 'Rhossili', location: 'Gower Peninsula', lat: 51.568, lon: -4.291, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'llangennith', name: 'Llangennith', location: 'Gower Peninsula', lat: 51.594, lon: -4.295, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'blue-pool', name: 'Blue Pool Bay', location: 'Gower Peninsula', lat: 51.589, lon: -4.274, facing: 'west', stationId: '0505', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
@@ -204,28 +204,28 @@ const BEACHES = [
 
   // SOUTH WALES - BRIDGEND TO CARDIFF
   { slug: 'porthcawl', name: 'Porthcawl (Coney Beach)', location: 'Bridgend', lat: 51.478, lon: -3.691, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
-  { slug: 'rest-bay', name: 'Rest Bay', location: 'Bridgend', lat: 51.491, lon: -3.718, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'rest-bay', name: 'Rest Bay', location: 'Bridgend', lat: 51.491, lon: -3.718, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'trecco-bay', name: 'Trecco Bay', location: 'Bridgend', lat: 51.4817, lon: -3.6972, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
-  { slug: 'pink-bay', name: 'Pink Bay (Sker)', location: 'Bridgend', lat: 51.504, lon: -3.748, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'pink-bay', name: 'Pink Bay (Sker)', location: 'Bridgend', lat: 51.504, lon: -3.748, facing: 'west', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'ogmore-by-sea', name: 'Ogmore-by-Sea', location: 'Vale of Glamorgan', lat: 51.460, lon: -3.635, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
-  { slug: 'southerndown', name: 'Southerndown (Dunraven Bay)', location: 'Vale of Glamorgan', lat: 51.446, lon: -3.606, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
+  { slug: 'southerndown', name: 'Southerndown (Dunraven Bay)', location: 'Vale of Glamorgan', lat: 51.446, lon: -3.606, facing: 'south', stationId: '0512', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
   { slug: 'nash-point', name: 'Nash Point', location: 'Vale of Glamorgan', lat: 51.403, lon: -3.562, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'rare' },
-  { slug: 'llantwit-major', name: 'Llantwit Major', location: 'Vale of Glamorgan', lat: 51.395, lon: -3.505, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
+  { slug: 'llantwit-major', name: 'Llantwit Major', location: 'Vale of Glamorgan', lat: 51.395, lon: -3.505, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'moderate' },
   { slug: 'barry-island', name: 'Barry Island', location: 'Vale of Glamorgan', lat: 51.390, lon: -3.273, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
   { slug: 'whitmore-bay', name: 'Whitmore Bay', location: 'Vale of Glamorgan', lat: 51.388, lon: -3.263, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
   { slug: 'cold-knap', name: 'Cold Knap', location: 'Vale of Glamorgan', lat: 51.400, lon: -3.281, facing: 'south', stationId: '0513', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
   { slug: 'penarth', name: 'Penarth', location: 'Vale of Glamorgan', lat: 51.431, lon: -3.172, facing: 'southeast', stationId: '0514', region: 'wales', company: 'welsh-water', companyName: 'Welsh Water', overflowContext: 'frequent' },
 
   // CORNWALL - SOUTH
-  { slug: 'sennen', name: 'Sennen Cove', location: 'Cornwall', lat: 50.071, lon: -5.697, facing: 'west', stationId: '0548', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'porthcurno', name: 'Porthcurno', location: 'Cornwall', lat: 50.043, lon: -5.655, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'sennen', name: 'Sennen Cove', location: 'Cornwall', lat: 50.071, lon: -5.697, facing: 'west', stationId: '0548', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'porthcurno', name: 'Porthcurno', location: 'Cornwall', lat: 50.043, lon: -5.655, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
   { slug: 'porthchapel', name: 'Porthchapel', location: 'Cornwall', lat: 50.042, lon: -5.637, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
   { slug: 'lamorna', name: 'Lamorna Cove', location: 'Cornwall', lat: 50.059, lon: -5.567, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
   { slug: 'penzance', name: 'Penzance', location: 'Cornwall', lat: 50.116, lon: -5.533, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'marazion', name: 'Marazion', location: 'Cornwall', lat: 50.125, lon: -5.469, facing: 'south', stationId: '0002', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'porthleven', name: 'Porthleven', location: 'Cornwall', lat: 50.085, lon: -5.316, facing: 'southwest', stationId: '0002A', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'porthleven', name: 'Porthleven', location: 'Cornwall', lat: 50.085, lon: -5.316, facing: 'southwest', stationId: '0002A', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'kynance', name: 'Kynance Cove', location: 'Cornwall', lat: 49.975, lon: -5.232, facing: 'west', stationId: '0003', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
-  { slug: 'coverack', name: 'Coverack', location: 'Cornwall', lat: 50.024, lon: -5.096, facing: 'east', stationId: '0004', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'coverack', name: 'Coverack', location: 'Cornwall', lat: 50.024, lon: -5.096, facing: 'east', stationId: '0004', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'falmouth-gyllyngvase', name: 'Gyllyngvase Beach', location: 'Cornwall', lat: 50.143, lon: -5.070, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'swanpool', name: 'Swanpool', location: 'Cornwall', lat: 50.139, lon: -5.080, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'maenporth', name: 'Maenporth', location: 'Cornwall', lat: 50.127, lon: -5.094, facing: 'south', stationId: '0005', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
@@ -239,30 +239,30 @@ const BEACHES = [
   { slug: 'hayle', name: 'Hayle (Towans)', location: 'Cornwall', lat: 50.207, lon: -5.425, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'gwithian', name: 'Gwithian', location: 'Cornwall', lat: 50.223, lon: -5.393, facing: 'north', stationId: '0547', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'perranporth', name: 'Perranporth', location: 'Cornwall', lat: 50.346, lon: -5.156, facing: 'west', stationId: '0546A', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'fistral', name: 'Fistral Beach', location: 'Newquay', lat: 50.416, lon: -5.104, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'newquay-great-western', name: 'Great Western Beach', location: 'Newquay', lat: 50.415, lon: -5.081, facing: 'north', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'watergate-bay', name: 'Watergate Bay', location: 'Cornwall', lat: 50.446, lon: -5.045, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'constantine', name: 'Constantine Bay', location: 'Cornwall', lat: 50.530, lon: -4.973, facing: 'west', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'harlyn', name: 'Harlyn Bay', location: 'Cornwall', lat: 50.548, lon: -4.935, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'fistral', name: 'Fistral Beach', location: 'Newquay', lat: 50.416, lon: -5.104, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'newquay-great-western', name: 'Great Western Beach', location: 'Newquay', lat: 50.415, lon: -5.081, facing: 'north', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'watergate-bay', name: 'Watergate Bay', location: 'Cornwall', lat: 50.446, lon: -5.045, facing: 'west', stationId: '0546', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'constantine', name: 'Constantine Bay', location: 'Cornwall', lat: 50.530, lon: -4.973, facing: 'west', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'harlyn', name: 'Harlyn Bay', location: 'Cornwall', lat: 50.548, lon: -4.935, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
   { slug: 'padstow', name: 'Padstow', location: 'Cornwall', lat: 50.541, lon: -4.936, facing: 'north', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'polzeath', name: 'Polzeath', location: 'Cornwall', lat: 50.573, lon: -4.915, facing: 'northwest', stationId: '0545', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'bude', name: 'Bude (Summerleaze)', location: 'Cornwall', lat: 50.832, lon: -4.553, facing: 'west', stationId: '0543', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'bude', name: 'Bude (Summerleaze)', location: 'Cornwall', lat: 50.832, lon: -4.553, facing: 'west', stationId: '0543', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
 
   // DEVON
-  { slug: 'woolacombe', name: 'Woolacombe', location: 'Devon', lat: 51.166, lon: -4.210, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
-  { slug: 'croyde', name: 'Croyde Bay', location: 'Devon', lat: 51.134, lon: -4.236, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
-  { slug: 'saunton-sands', name: 'Saunton Sands', location: 'Devon', lat: 51.113, lon: -4.224, facing: 'west', stationId: '0537', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
-  { slug: 'westward-ho', name: 'Westward Ho!', location: 'Devon', lat: 51.039, lon: -4.235, facing: 'northwest', stationId: '0536', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'woolacombe', name: 'Woolacombe', location: 'Devon', lat: 51.166, lon: -4.210, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'croyde', name: 'Croyde Bay', location: 'Devon', lat: 51.134, lon: -4.236, facing: 'west', stationId: '0535', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'saunton-sands', name: 'Saunton Sands', location: 'Devon', lat: 51.113, lon: -4.224, facing: 'west', stationId: '0537', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'westward-ho', name: 'Westward Ho!', location: 'Devon', lat: 51.039, lon: -4.235, facing: 'northwest', stationId: '0536', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'salcombe', name: 'Salcombe (North Sands)', location: 'Devon', lat: 50.230, lon: -3.773, facing: 'south', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'bantham', name: 'Bantham', location: 'Devon', lat: 50.277, lon: -3.867, facing: 'southwest', stationId: '0020', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
   { slug: 'dartmouth', name: 'Dartmouth (Castle Cove)', location: 'Devon', lat: 50.345, lon: -3.575, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'blackpool-sands', name: 'Blackpool Sands', location: 'Devon', lat: 50.310, lon: -3.611, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
-  { slug: 'torquay', name: 'Torquay (Meadfoot Beach)', location: 'Devon', lat: 50.458, lon: -3.512, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'oddicombe', name: 'Oddicombe', location: 'Devon', lat: 50.475, lon: -3.510, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'blackpool-sands', name: 'Blackpool Sands', location: 'Devon', lat: 50.310, lon: -3.611, facing: 'east', stationId: '0023', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'rare' },
+  { slug: 'torquay', name: 'Torquay (Meadfoot Beach)', location: 'Devon', lat: 50.458, lon: -3.512, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'oddicombe', name: 'Oddicombe', location: 'Devon', lat: 50.475, lon: -3.510, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'paignton', name: 'Paignton', location: 'Devon', lat: 50.4361, lon: -3.5619, facing: 'east', stationId: '0025', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'teignmouth', name: 'Teignmouth', location: 'Devon', lat: 50.543, lon: -3.500, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'dawlish', name: 'Dawlish', location: 'Devon', lat: 50.580, lon: -3.467, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
-  { slug: 'exmouth', name: 'Exmouth', location: 'Devon', lat: 50.614, lon: -3.407, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'frequent' },
+  { slug: 'teignmouth', name: 'Teignmouth', location: 'Devon', lat: 50.543, lon: -3.500, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'dawlish', name: 'Dawlish', location: 'Devon', lat: 50.580, lon: -3.467, facing: 'east', stationId: '0026', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
+  { slug: 'exmouth', name: 'Exmouth', location: 'Devon', lat: 50.614, lon: -3.407, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'sidmouth', name: 'Sidmouth', location: 'Devon', lat: 50.677, lon: -3.239, facing: 'south', stationId: '0027', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
   { slug: 'seaton', name: 'Seaton', location: 'Devon', lat: 50.704, lon: -3.072, facing: 'south', stationId: '0028', region: 'england', company: 'south-west-water', companyName: 'South West Water', overflowContext: 'moderate' },
 
@@ -271,11 +271,11 @@ const BEACHES = [
   { slug: 'charmouth', name: 'Charmouth', location: 'Dorset', lat: 50.733, lon: -2.905, facing: 'south', stationId: '0028', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
   { slug: 'west-bay', name: 'West Bay', location: 'Dorset', lat: 50.710, lon: -2.762, facing: 'south', stationId: '0029', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
   { slug: 'chesil-beach', name: 'Chesil Beach', location: 'Dorset', lat: 50.617, lon: -2.548, facing: 'south', stationId: '0030', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
-  { slug: 'weymouth', name: 'Weymouth', location: 'Dorset', lat: 50.608, lon: -2.454, facing: 'south', stationId: '0033', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'weymouth', name: 'Weymouth', location: 'Dorset', lat: 50.608, lon: -2.454, facing: 'south', stationId: '0033', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'frequent' },
   { slug: 'lulworth-cove', name: 'Lulworth Cove', location: 'Dorset', lat: 50.619, lon: -2.249, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
   { slug: 'durdle-door', name: 'Durdle Door', location: 'Dorset', lat: 50.622, lon: -2.276, facing: 'south', stationId: '0034', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
   { slug: 'swanage', name: 'Swanage', location: 'Dorset', lat: 50.610, lon: -1.953, facing: 'east', stationId: '0035', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
-  { slug: 'studland', name: 'Studland Bay', location: 'Dorset', lat: 50.652, lon: -1.935, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
+  { slug: 'studland', name: 'Studland Bay', location: 'Dorset', lat: 50.652, lon: -1.935, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'rare' },
   { slug: 'sandbanks', name: 'Sandbanks', location: 'Dorset', lat: 50.688, lon: -1.945, facing: 'east', stationId: '0036', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'moderate' },
   { slug: 'bournemouth', name: 'Bournemouth', location: 'Dorset', lat: 50.716, lon: -1.874, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'frequent' },
   { slug: 'boscombe', name: 'Boscombe', location: 'Dorset', lat: 50.718, lon: -1.842, facing: 'south', stationId: '0037', region: 'england', company: 'wessex-water', companyName: 'Wessex Water', overflowContext: 'frequent' },
@@ -293,20 +293,20 @@ const BEACHES = [
   // SUSSEX
   { slug: 'west-wittering', name: 'West Wittering', location: 'West Sussex', lat: 50.772, lon: -0.885, facing: 'south', stationId: '0068', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
   { slug: 'bracklesham', name: 'Bracklesham', location: 'West Sussex', lat: 50.770, lon: -0.849, facing: 'south', stationId: '0069', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
-  { slug: 'bognor-regis', name: 'Bognor Regis', location: 'West Sussex', lat: 50.781, lon: -0.677, facing: 'south', stationId: '0073', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'bognor-regis', name: 'Bognor Regis', location: 'West Sussex', lat: 50.781, lon: -0.677, facing: 'south', stationId: '0073', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
   { slug: 'littlehampton', name: 'Littlehampton', location: 'West Sussex', lat: 50.800, lon: -0.548, facing: 'south', stationId: '0074', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
-  { slug: 'worthing', name: 'Worthing', location: 'West Sussex', lat: 50.808, lon: -0.372, facing: 'south', stationId: '0075', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'worthing', name: 'Worthing', location: 'West Sussex', lat: 50.808, lon: -0.372, facing: 'south', stationId: '0075', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
   { slug: 'shoreham', name: 'Shoreham-by-Sea', location: 'West Sussex', lat: 50.828, lon: -0.271, facing: 'south', stationId: '0081', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
   { slug: 'hove', name: 'Hove', location: 'East Sussex', lat: 50.824, lon: -0.170, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
   { slug: 'brighton', name: 'Brighton Beach', location: 'East Sussex', lat: 50.819, lon: -0.137, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
-  { slug: 'saltdean', name: 'Saltdean', location: 'East Sussex', lat: 50.800, lon: -0.038, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
+  { slug: 'saltdean', name: 'Saltdean', location: 'East Sussex', lat: 50.800, lon: -0.038, facing: 'south', stationId: '0082', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
   { slug: 'newhaven', name: 'Newhaven', location: 'East Sussex', lat: 50.783, lon: 0.051, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
   { slug: 'seaford', name: 'Seaford', location: 'East Sussex', lat: 50.771, lon: 0.103, facing: 'south', stationId: '0083', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
-  { slug: 'birling-gap', name: 'Birling Gap', location: 'East Sussex', lat: 50.744, lon: 0.202, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
-  { slug: 'eastbourne', name: 'Eastbourne', location: 'East Sussex', lat: 50.766, lon: 0.290, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
-  { slug: 'bexhill', name: 'Bexhill-on-Sea', location: 'East Sussex', lat: 50.837, lon: 0.475, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
-  { slug: 'hastings', name: 'Hastings', location: 'East Sussex', lat: 50.853, lon: 0.589, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'frequent' },
-  { slug: 'camber', name: 'Camber Sands', location: 'East Sussex', lat: 50.932, lon: 0.805, facing: 'south', stationId: '0086', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'birling-gap', name: 'Birling Gap', location: 'East Sussex', lat: 50.744, lon: 0.202, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'rare' },
+  { slug: 'eastbourne', name: 'Eastbourne', location: 'East Sussex', lat: 50.766, lon: 0.290, facing: 'south', stationId: '0084', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'bexhill', name: 'Bexhill-on-Sea', location: 'East Sussex', lat: 50.837, lon: 0.475, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'hastings', name: 'Hastings', location: 'East Sussex', lat: 50.853, lon: 0.589, facing: 'south', stationId: '0085', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'moderate' },
+  { slug: 'camber', name: 'Camber Sands', location: 'East Sussex', lat: 50.932, lon: 0.805, facing: 'south', stationId: '0086', region: 'england', company: 'southern-water', companyName: 'Southern Water', overflowContext: 'rare' },
 ];
 
 // ============================================
@@ -521,73 +521,46 @@ async function fetchWeatherForTime(beach, targetDate) {
 async function fetchSewageStatus(beach) {
   try {
     if (beach.company === 'welsh-water') {
-      const url = `https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query?where=1%3D1&outFields=status,stop_date_time_discharge,start_date_time_discharge,asset_name,Linked_Bathing_Water&f=json&returnGeometry=false`;
+      const url = `https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=false`;
       const response = await fetch(url);
       const data = await response.json();
       
-      if (!data.features || data.features.length === 0) {
-        console.warn('No Welsh Water sewage data returned');
-        return { status: 'unknown', icon: '?', source: 'Welsh Water' };
-      }
-      
-      const beachOverflows = data.features.filter(f => {
-        const linkedBeach = f.attributes.Linked_Bathing_Water;
-        if (!linkedBeach) return false;
-        
-        const beachLower = beach.name.toLowerCase().replace(/\s+/g, '');
-        const linkedLower = linkedBeach.toLowerCase().replace(/\s+/g, '');
-        
-        return beachLower.includes(linkedLower) || linkedLower.includes(beachLower);
+      const nearby = data.features?.find(f => {
+        const dist = Math.sqrt(Math.pow((f.attributes.Y || 0) - beach.lat, 2) + Math.pow((f.attributes.X || 0) - beach.lon, 2));
+        return dist < 0.05;
       });
       
-      if (beachOverflows.length === 0) {
-        return { status: 'clear', icon: '✓', source: 'Welsh Water' };
-      }
-      
-      const activeOverflow = beachOverflows.find(f => 
-        f.attributes.status === 'Overflow Operating'
-      );
-      
-      if (activeOverflow) {
-        return { status: 'active', icon: '✗', source: 'Welsh Water', hoursSince: 0 };
-      }
-      
-      // Context-aware clearance logic
-      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
-      const now = Date.now();
-      
-      let mostRecentDischarge = null;
-      let hoursSinceMostRecent = Infinity;
-      
-      for (const overflow of beachOverflows) {
-        const stopTime = overflow.attributes.stop_date_time_discharge;
-        if (!stopTime) continue;
+      if (nearby) {
+        const status = (nearby.attributes.status || '').toLowerCase();
         
-        const stoppedAt = new Date(stopTime).getTime();
-        const hoursSince = (now - stoppedAt) / 3600000;
+        if (status.includes('operating') || status.includes('discharging') || status.includes('spilling')) {
+          return { status: 'active', icon: '✗', source: 'Welsh Water' };
+        }
         
-        if (hoursSince < hoursSinceMostRecent) {
-          hoursSinceMostRecent = hoursSince;
-          mostRecentDischarge = overflow;
+        const stopTime = nearby.attributes.stop_date_time_discharge;
+        if (stopTime) {
+          const hoursSince = (Date.now() - new Date(stopTime)) / 3600000;
+          
+          const overflowContext = beach.overflowContext || 'moderate';
+          const clearanceWindow = OVERFLOW_CONTEXTS[overflowContext].clearanceHours;
+          
+          if (hoursSince < clearanceWindow) {
+            return { 
+              status: 'recent', 
+              icon: '!', 
+              source: 'Welsh Water',
+              context: overflowContext,
+              hoursSince: Math.round(hoursSince),
+              message: hoursSince < 24 
+                ? OVERFLOW_CONTEXTS[overflowContext].messageAmber 
+                : OVERFLOW_CONTEXTS[overflowContext].messageGreen
+            };
+          }
         }
       }
-      
-      if (mostRecentDischarge && hoursSinceMostRecent < context.clearanceHours) {
-        return { 
-          status: 'recent', 
-          icon: '!', 
-          source: 'Welsh Water',
-          hoursSince: Math.round(hoursSinceMostRecent),
-          clearanceHours: context.clearanceHours,
-          overflowContext: beach.overflowContext
-        };
-      }
-      
       return { status: 'clear', icon: '✓', source: 'Welsh Water' };
     }
-    
     return { status: 'clear', icon: '✓', source: beach.companyName };
-    
   } catch (err) {
     console.warn('Sewage fetch failed:', err.message);
     return { status: 'unknown', icon: '?', source: beach.companyName };
@@ -595,7 +568,7 @@ async function fetchSewageStatus(beach) {
 }
 
 // ============================================
-// RECOMMENDATION ENGINE - IMPROVED TEXT
+// RECOMMENDATION ENGINE - ENHANCED WEATHER
 // ============================================
 
 function generateRecommendation(beach, conditions, mode, timeSlot) {
@@ -604,294 +577,250 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   let statusText = 'great';
   let parts = [];
   
+  // Enhanced weather state descriptions
   const getWeatherState = () => {
-    if (weather.precipitation > 2) return 'Rain forecast';
-    if (weather.precipitation > 0.5) return 'Light rain expected';
-    if (weather.cloudCover < 20) return 'Clear skies';
-    if (weather.cloudCover < 50) return 'Partly cloudy';
-    if (weather.cloudCover < 80) return 'Mostly cloudy';
-    return 'Overcast conditions';
+    if (weather.precipitation > 2) return 'heavy rain forecast';
+    if (weather.precipitation > 0.5) return 'light rain expected';
+    if (weather.cloudCover < 20) return 'clear skies';
+    if (weather.cloudCover < 50) return 'partly cloudy';
+    if (weather.cloudCover < 80) return 'mostly cloudy';
+    return 'overcast conditions';
+  };
+  
+  // Sunrise/sunset visibility context
+  const getSunVisibility = () => {
+    const isMorning = timeSlot === 'now' && new Date().getHours() < 9 || timeSlot === 'tomorrow-am' || timeSlot === 'day-after-am';
+    const isEvening = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
+    
+    if (isMorning && sun) {
+      if (weather.cloudCover < 20) {
+        return `sunrise at ${sun.sunrise} will be spectacular`;
+      } else if (weather.cloudCover > 70) {
+        return `sunrise at ${sun.sunrise} hidden by cloud`;
+      } else {
+        return `sunrise at ${sun.sunrise}`;
+      }
+    }
+    
+    if (isEvening && sun && ['west', 'northwest', 'southwest'].includes(beach.facing)) {
+      if (weather.cloudCover < 20) {
+        return `sunset at ${sun.sunset} looking golden`;
+      } else if (weather.cloudCover > 70) {
+        return `sunset at ${sun.sunset} will be muted`;
+      } else {
+        return `sunset at ${sun.sunset}`;
+      }
+    }
+    
+    return null;
   };
   
   const weatherState = getWeatherState();
+  const sunVisibility = getSunVisibility();
   const isClear = weather.cloudCover < 30;
   const isMorningForecast = timeSlot === 'tomorrow-am' || timeSlot === 'day-after-am';
   const isEveningForecast = timeSlot === 'tonight' || timeSlot === 'tomorrow-pm';
   
   if (mode === 'swimming') {
-    // RED conditions
     if (sewage.status === 'active') {
-      return { status: 'red', statusText: 'avoid', recommendation: '**Active sewage discharge.** Swimming not recommended. Try a nearby beach instead.' };
+      const weatherNote = weather.precipitation > 2 ? `${weatherState}.` : weatherState;
+      return { status: 'red', statusText: 'avoid', recommendation: `**active sewage discharge.** swimming not recommended. ${weatherNote}. try a nearby beach instead.` };
     }
+    
     if (marine.waveHeight > 2) {
-      return { status: 'red', statusText: 'rough', recommendation: `**Very rough seas.** ${marine.waveHeight.toFixed(1)}m waves. Dangerous conditions.` };
+      const weatherNote = weather.precipitation > 1 ? `${weatherState} making conditions worse.` : `${weatherState}.`;
+      return { status: 'red', statusText: 'rough', recommendation: `**very rough seas** at ${marine.waveHeight.toFixed(1)}m waves. ${weatherNote} dangerous conditions.` };
     }
     
-    // AMBER conditions
     if (sewage.status === 'recent') {
-      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
-      const hoursSince = sewage.hoursSince || 0;
+      status = 'amber'; 
+      statusText = 'check';
       
-      // Very recent (< 6 hours) = RED regardless of beach type
-      if (hoursSince < 6) {
-        return { status: 'red', statusText: 'wait', recommendation: `**Very recent sewage discharge** (${hoursSince} hours ago). Wait a few more hours.` };
+      if (sewage.message) {
+        parts.push(`**${sewage.message}**`);
+      } else {
+        parts.push('**sewage discharge ended 24-48 hours ago.** water should be clear but some prefer to wait.');
       }
       
-      // Recent but clearing (6-24 hours)
-      if (hoursSince < 24) {
-        status = 'amber'; 
-        statusText = 'check';
-        
-        if (beach.overflowContext === 'frequent') {
-          parts.push(`**Discharge ${hoursSince} hours ago.** ${context.description}. Water clearing - this beach has UV treatment and regular testing.`);
-        } else {
-          parts.push(`**Discharge ${hoursSince} hours ago.** Water should be clearing. Some prefer to wait longer.`);
-        }
+      parts.push(weatherState);
+      
+      if (marine.waveHeight >= 1) {
+        parts.push(`choppy at ${marine.waveHeight.toFixed(1)}m`);
       }
-      // Older discharge (24hr+) - context matters
-      else if (hoursSince >= 24) {
-        if (beach.overflowContext === 'frequent') {
-          // Urban beach with treatment - likely fine after 24 hours
-          // Don't add warning, handle in "sewage clear" section below
-          sewage.wasRecent = true; // Flag for informational note
-        } else {
-          // Moderate/rare beach - still cautious
-          status = 'amber';
-          statusText = 'check';
-          parts.push(`**Discharge yesterday** (${hoursSince} hours ago). ${context.messageGreen}.`);
-        }
+      
+      if (weather.windSpeed > 25) {
+        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h`);
       }
-    }
-    if (marine.waveHeight >= 1.5) {
-      if (status === 'green') status = 'amber';
+    } else if (marine.waveHeight >= 1.5) {
+      status = 'amber';
       statusText = 'choppy';
-      parts.push(`**${marine.waveHeight.toFixed(1)}m waves - some push and pull.** Stay aware.`);
-    }
-    if (weather.windSpeed > 40) {
-      if (status === 'green') status = 'amber';
+      parts.push(`**choppy conditions** at ${marine.waveHeight.toFixed(1)}m waves.`);
+      parts.push(weatherState);
+      
+      if (weather.precipitation > 0.5) {
+        parts.push('rain will make changing uncomfortable');
+      }
+      
+      if (sunVisibility) {
+        parts.push(sunVisibility);
+      }
+      
+      if (weather.windSpeed > 20) {
+        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - find shelter for changing`);
+      }
+    } else if (weather.windSpeed > 40) {
+      status = 'amber';
       statusText = 'windy';
-      parts.push(`**Strong winds.** ${Math.round(weather.windSpeed)}km/h.`);
-    }
-    
-    // GREEN conditions
-    if (status === 'green') {
-      statusText = 'excellent';
-      
-      // Opening - water state
-      if (marine.waveHeight < 0.5) {
-        parts.push(`**glassy water.** barely a ripple. ${weatherState}.`);
-      } else if (marine.waveHeight < 0.8) {
-        parts.push(`**calm water.** ${weatherState}.`);
-      } else if (marine.waveHeight < 1.2) {
-        parts.push(`**gentle swell.** rolling waves. ${weatherState}.`);
-      } else {
-        parts.push(`**moderate conditions.** ${marine.waveHeight.toFixed(1)}m waves. ${weatherState}.`);
-      }
-      
-      // Wind description
-      if (weather.windSpeed < 10) parts.push('Barely any breeze.');
-      else if (weather.windSpeed < 20) parts.push('Light breeze.');
-      else if (weather.windSpeed < 30) parts.push('Moderate breeze.');
-      
-      // Sewage
-      if (sewage.status === 'clear') {
-        if (sewage.wasRecent) {
-          // Urban beach had discharge 24hr+ ago but we're treating as clear
-          parts.push(`Discharge yesterday - ${OVERFLOW_CONTEXTS[beach.overflowContext].description}. Water quality rated excellent by NRW.`);
-        } else {
-          parts.push('No sewage alerts.');
-        }
-      }
-      
-      // Sunrise/sunset context
-      const isEastFacing = beach.facing && ['east', 'northeast', 'southeast'].includes(beach.facing);
-      const isWestFacing = beach.facing && ['west', 'northwest', 'southwest'].includes(beach.facing);
-      
-      if (sun && isMorningForecast && isClear) {
-        if (isEastFacing) {
-          parts.push(`**Sunrise at ${sun.sunrise}** - this ${beach.facing}-facing beach gives you front-row seats to the show.`);
-        } else {
-          parts.push(`**Sunrise at ${sun.sunrise}** - clear skies for beautiful morning light.`);
-        }
-      }
-      if (sun && isEveningForecast && isClear) {
-        if (isWestFacing) {
-          parts.push(`**Sunset at ${sun.sunset}** - ${beach.facing}-facing beach means swimming into golden hour. worth staying for.`);
-        } else {
-          parts.push(`**Sunset at ${sun.sunset}** - clear evening conditions.`);
-        }
-      }
-      
-      // UV
-      if (weather.uvIndex >= 6) parts.push(`UV high (${weather.uvIndex}) - bring sun cream.`);
-      else if (weather.uvIndex >= 3) parts.push(`UV moderate (${weather.uvIndex}).`);
-      
-      // Tide
-      if (tide.high.time && tide.high.time !== '—') {
-        parts.push(`High tide ${tide.high.time}, low ${tide.low.time}.`);
-      }
-      
-      // Temperature
-      if (marine.seaTemp && marine.seaTemp < 12) {
-        parts.push(`Water's ${Math.round(marine.seaTemp)}°C - bring warm layers.`);
-      }
-    }
-    
-  } else if (mode === 'dipping') {
-    // RED conditions - dipping is stricter due to immersion risk
-    if (sewage.status === 'active') {
-      return { status: 'red', statusText: 'avoid', recommendation: '**Active sewage discharge.** Dipping not recommended.' };
-    }
-    
-    // Recent discharge - context-aware handling
-    if (sewage.status === 'recent') {
-      const context = OVERFLOW_CONTEXTS[beach.overflowContext || 'moderate'];
-      const hoursSince = sewage.hoursSince || 0;
-      
-      // Very recent (< 12 hours) = RED for dipping (stricter than swimming)
-      if (hoursSince < 12) {
-        return { status: 'red', statusText: 'wait', recommendation: `**Recent sewage discharge** (${hoursSince} hours ago). Immersion risk - wait longer for dipping.` };
-      }
-      
-      // 12-24 hours - AMBER for all
-      if (hoursSince < 24) {
-        status = 'amber';
-        statusText = 'caution';
-        parts.push(`**Discharge ${hoursSince} hours ago.** Water clearing but dipping means full immersion - use your judgment.`);
-      }
-      // 24hr+ - depends on context
-      else {
-        if (beach.overflowContext === 'frequent') {
-          // Urban beach - likely okay after 24 hours
-          sewage.wasRecent = true; // Flag for informational note
-        } else {
-          // Moderate/rare - still cautious for dipping
-          status = 'amber';
-          statusText = 'check';
-          parts.push(`**Discharge yesterday** (${hoursSince} hours ago). ${context.messageAmber}.`);
-        }
-      }
-    }
-    
-    if (weather.feelsLike < 0) {
-      return { status: 'red', statusText: 'dangerous', recommendation: `**Severe hypothermia risk.** Feels like ${Math.round(weather.feelsLike)}°C during recovery.` };
-    }
-    
-    // Temperature-based status
-    if (marine.seaTemp >= 13) {
-      status = 'amber'; 
-      statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - for a longer, gentler dip.** Too warm for serious cold therapy.`);
-    } else if (marine.seaTemp <= 8) {
-      status = 'green'; 
-      statusText = 'perfect';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - pure winter magic.** proper cold therapy.`);
-    } else if (marine.seaTemp <= 10) {
-      status = 'green'; 
-      statusText = 'excellent';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - crisp and clarifying.**`);
+      parts.push(`**strong winds** at ${Math.round(weather.windSpeed)}km/h.`);
+      parts.push(weatherState);
+      parts.push('experienced swimmers only');
     } else {
-      status = 'amber'; 
-      statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - gentle cold therapy.** still bracing, still good.`);
-    }
-    
-    // GREEN dipping conditions
-    if (status === 'green') {
-      // Weather context
-      if (isMorningForecast && isClear) {
-        parts.push(`Still morning. ${weatherState}. The world quiet before it wakes.`);
-      } else if (isClear) {
-        parts.push(`${weatherState}. No distractions.`);
+      // GREEN status - perfect conditions
+      status = 'green';
+      statusText = 'excellent';
+      
+      if (marine.waveHeight < 0.5) {
+        parts.push(`**perfect conditions.** calm water like glass. ${weatherState}.`);
+      } else if (marine.waveHeight < 1) {
+        parts.push(`**lovely conditions.** gentle rolling waves. ${weatherState}.`);
       } else {
-        parts.push(`${weatherState}. Pure focus.`);
+        parts.push(`**good swimming weather.** moderate swell. ${weatherState}.`);
       }
       
-      // Sunrise emphasis for dawn dips
-      const isEastFacing = beach.facing && ['east', 'northeast', 'southeast'].includes(beach.facing);
-      if (isMorningForecast && sun && isClear) {
-        if (isEastFacing) {
-          parts.push(`**Dawn at ${sun.sunrise}** - ${beach.facing}-facing beach means you'll watch it rise from the water. this is what it's all about.`);
-        } else {
-          parts.push(`**Dawn at ${sun.sunrise}** - watch the sky change while the cold works its magic.`);
-        }
-      }
-      
-      // Sunset emphasis for evening dips
-      const isWestFacing = beach.facing && ['west', 'northwest', 'southwest'].includes(beach.facing);
-      if (isEveningForecast && sun && isClear) {
-        if (isWestFacing) {
-          parts.push(`**Evening dip with sunset at ${sun.sunset}** - ${beach.facing}-facing beach means golden hour in the water. worth staying for.`);
-        } else {
-          parts.push(`**Evening dip before sunset at ${sun.sunset}** - clear evening for your cold therapy session.`);
-        }
-      }
-      
-      // Recovery conditions
-      if (weather.feelsLike < 5) {
-        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C on land. Warm layers essential. Hot drink recommended.`);
-      } else if (weather.feelsLike < 10) {
-        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - bring warm layers for after.`);
+      // Add sunrise/sunset context
+      if (sunVisibility) {
+        parts.push(sunVisibility);
       }
       
       // Wind context
-      if (weather.windSpeed < 15) {
-        parts.push('Calm conditions for getting changed.');
-      } else if (weather.windSpeed < 25) {
-        parts.push('Breezy - find shelter for changing.');
-      } else {
-        parts.push(`Wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one.`);
+      if (weather.windSpeed < 10) {
+        parts.push('barely any breeze');
+      } else if (weather.windSpeed < 20) {
+        parts.push('light breeze');
+      } else if (weather.windSpeed < 30) {
+        parts.push('moderate breeze - nothing to worry about');
       }
       
-      // Water quality
+      // Rain context
+      if (weather.precipitation > 0.5) {
+        parts.push('light rain forecast - part of the experience');
+      }
+      
+      // Sewage status
       if (sewage.status === 'clear') {
-        if (sewage.wasRecent) {
-          // Urban beach had discharge 24hr+ ago but treating as clear
-          parts.push(`Discharge yesterday - ${OVERFLOW_CONTEXTS[beach.overflowContext].description}. Water quality rated excellent.`);
-        } else {
-          parts.push('Water quality clear.');
-        }
+        parts.push('no sewage alerts');
       }
       
-      // Safe time guidance
-      if (marine.seaTemp <= 8) {
-        parts.push('Safe time: 3-5 minutes.');
-      } else if (marine.seaTemp <= 10) {
-        parts.push('Safe time: 5-8 minutes.');
-      } else {
-        parts.push('Safe time: 8-10 minutes depending on experience.');
+      // UV guidance
+      if (weather.uvIndex >= 6) {
+        parts.push(`UV high (${weather.uvIndex}) - definitely bring sun cream`);
+      } else if (weather.uvIndex >= 3 && weather.cloudCover < 50) {
+        parts.push(`UV moderate (${weather.uvIndex}) - sun cream recommended`);
+      }
+      
+      // Tide timing
+      if (tide.high.time && tide.high.time !== '—') {
+        parts.push(`high tide ${tide.high.time}, low ${tide.low.time}`);
+      }
+      
+      // Temperature notes
+      if (marine.seaTemp && marine.seaTemp < 12) {
+        parts.push(`water's ${Math.round(marine.seaTemp)}°C - bring warm layers for afterwards`);
       }
     }
-    
-    // AMBER dipping conditions (11-12°C - still good but not ideal)
-    if (status === 'amber' && marine.seaTemp >= 11 && marine.seaTemp < 13) {
-      // Weather context - softer than green
-      if (isMorningForecast && isClear) {
-        parts.push(`Soft grey light. ${weatherState}.`);
-      } else {
-        parts.push(`${weatherState}.`);
-      }
-      
-      // Recovery conditions
-      if (weather.feelsLike < 10) {
-        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - layers for recovery.`);
-      }
-      
-      // Water quality
-      if (sewage.status === 'clear') parts.push('Water quality clear.');
-      
-      // Safe time - slightly longer window
-      parts.push('Safe time: 5-8 minutes.');
+  } else if (mode === 'dipping') {
+    // DIPPING MODE
+    if (sewage.status === 'active' || sewage.status === 'recent') {
+      const weatherNote = weatherState;
+      return { status: 'red', statusText: 'wait', recommendation: `**sewage discharge recently.** ${weatherNote}. wait 48 hours for dipping.` };
     }
     
-    // AMBER dipping conditions (13°C+ - too mild)
-    if (status === 'amber' && marine.seaTemp >= 13) {
-      parts.push(`${weatherState}.`);
-      if (weather.feelsLike < 10) {
-        parts.push(`Feels like ${Math.round(weather.feelsLike)}°C - layer up for after.`);
+    if (weather.feelsLike < 0) {
+      const weatherNote = weather.precipitation > 1 ? `${weatherState} adding to the challenge.` : weatherState;
+      return { status: 'red', statusText: 'dangerous', recommendation: `**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C outside. ${weatherNote}. recovery will be brutal.` };
+    }
+    
+    // Temperature assessment (inverted logic - colder is better)
+    if (marine.seaTemp >= 13) {
+      status = 'amber'; 
+      statusText = 'mild';
+      parts.push(`**${Math.round(marine.seaTemp)}°C - too mild for cold therapy.** ${weatherState}.`);
+      
+      if (weather.precipitation > 0.5) {
+        parts.push('rain will make changing less pleasant');
       }
-      if (sewage.status === 'clear') parts.push('Water quality clear.');
-      parts.push('Consider saving this for a distance swim instead.');
+      
+      parts.push('better for a longer, gentler dip');
+    } else if (marine.seaTemp <= 8) {
+      status = 'green'; 
+      statusText = 'perfect';
+      parts.push(`**pure winter magic.** water at ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      
+      if (sunVisibility) {
+        parts.push(sunVisibility);
+      }
+      
+      if (weather.windSpeed < 15) {
+        parts.push('still conditions for getting changed');
+      } else if (weather.windSpeed < 25) {
+        parts.push('moderate breeze - find shelter');
+      } else {
+        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one`);
+      }
+      
+      if (weather.precipitation > 1) {
+        parts.push('rain forecast - you\'ll feel every drop, but that\'s part of it');
+      } else if (weather.precipitation > 0.5) {
+        parts.push('light rain expected - adds to the atmosphere');
+      }
+      
+      if (weather.feelsLike < 5) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C outside - warm layers essential for recovery. hot drink recommended`);
+      }
+      
+      if (sewage.status === 'clear') {
+        parts.push('water quality clear');
+      }
+      
+      parts.push('safe time: 3-5 minutes');
+    } else if (marine.seaTemp <= 10) {
+      status = 'green'; 
+      statusText = 'excellent';
+      parts.push(`**crisp and clarifying.** ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      
+      if (sunVisibility) {
+        parts.push(sunVisibility);
+      }
+      
+      if (weather.windSpeed < 15) {
+        parts.push('calm conditions');
+      } else if (weather.windSpeed > 30) {
+        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - breezy recovery`);
+      }
+      
+      if (weather.precipitation > 0.5) {
+        parts.push('rain expected - embrace it');
+      }
+      
+      if (weather.feelsLike < 8) {
+        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - bring extra layers`);
+      }
+      
+      parts.push('safe time: 5-10 minutes depending on your experience');
+    } else {
+      status = 'amber'; 
+      statusText = 'mild';
+      parts.push(`**gentle cold therapy.** ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      
+      if (sunVisibility) {
+        parts.push(sunVisibility);
+      }
+      
+      if (weather.precipitation > 1) {
+        parts.push('heavy rain forecast - changing will be soggy');
+      }
+      
+      parts.push('still bracing, still good');
     }
   }
   
@@ -917,16 +846,6 @@ app.get('/conditions/:beach?', async (req, res) => {
     const beach = BEACHES.find(b => b.slug === slug);
     if (!beach) return res.status(404).json({ error: 'Beach not found' });
     
-    // Check cache
-    const cacheKey = `single-${slug}-${mode}`;
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      console.log(`Cache HIT: ${cacheKey}`);
-      return res.json(cached);
-    }
-    
-    console.log(`Cache MISS: ${cacheKey} - fetching fresh data`);
-    
     const targetDate = new Date();
     const [tide, weatherData, sewage] = await Promise.all([
       fetchTideForTime(beach, targetDate),
@@ -941,12 +860,7 @@ app.get('/conditions/:beach?', async (req, res) => {
     const sunTimes = calculateSunTimes(beach.lat, beach.lon, targetDate);
     const recommendation = generateRecommendation(beach, { marine, weather: { ...weather, feelsLike }, sewage, tide, sun: sunTimes }, mode, 'now');
     
-    const result = { beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide: { high: tide.high.time, low: tide.low.time }, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation };
-    
-    // Store in cache
-    setCache(cacheKey, result);
-    
-    res.json(result);
+    res.json({ beach: beach.name, location: beach.location, mode, seaTemp: marine.seaTemp, waveHeight: marine.waveHeight, tide: { high: tide.high.time, low: tide.low.time }, airTemp: weather.airTemp, feelsLike, windSpeed: weather.windSpeed, uvIndex: weather.uvIndex, sewage, sunrise: sunTimes.sunrise, sunset: sunTimes.sunset, recommendation });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -968,11 +882,8 @@ app.get('/dashboard', async (req, res) => {
     const cacheKey = getCacheKey(beachSlugs, mode, timeSlot);
     const cached = getFromCache(cacheKey);
     if (cached) {
-      console.log(`Cache HIT: ${cacheKey}`);
       return res.json(cached);
     }
-    
-    console.log(`Cache MISS: ${cacheKey} - fetching fresh data`);
     
     const targetDate = getDateForTimeSlot(timeSlot);
     const isForecast = timeSlot !== 'now';
@@ -1011,23 +922,22 @@ app.get('/dashboard', async (req, res) => {
     const validBeaches = beachesData.filter(b => b !== null);
     if (validBeaches.length === 0) return res.status(404).json({ error: 'No valid beaches found' });
     
-    const result = {
+    const response = {
       meta: {
         time: timeSlot,
         timeLabel: getTimeLabel(timeSlot),
         mode,
         isForecast,
         updatedAt: new Date().toISOString(),
-        availableTimeSlots: getAvailableTimeSlots(),
-        cached: false
+        availableTimeSlots: getAvailableTimeSlots()
       },
       beaches: validBeaches
     };
     
-    // Store in cache
-    setCache(cacheKey, result);
+    // Cache the response
+    setCache(cacheKey, response);
     
-    res.json(result);
+    res.json(response);
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
@@ -1062,10 +972,7 @@ app.post('/alexa', async (req, res) => {
   }
 });
 
-// ============================================
-// DEBUG ENDPOINTS
-// ============================================
-
+// Debug endpoint for sewage
 app.get('/debug-sewage/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -1074,64 +981,57 @@ app.get('/debug-sewage/:beach', async (req, res) => {
     beach: beach.name,
     beachLat: beach.lat,
     beachLon: beach.lon,
-    company: beach.company,
+    overflowContext: beach.overflowContext,
     tests: []
   };
   
-  if (beach.company === 'welsh-water') {
-    const test = {
-      name: 'Welsh Water Spill_Prod (NEW ENDPOINT)',
-      url: 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query?where=1%3D1&outFields=status,stop_date_time_discharge,start_date_time_discharge,asset_name,Linked_Bathing_Water&f=json&returnGeometry=false&resultRecordCount=10',
+  const urlsToTry = [
+    {
+      name: 'Welsh Water Spill Data (NEW)',
+      url: 'https://services3.arcgis.com/KLNF7YxtENPLYVey/arcgis/rest/services/Spill_Prod__view/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&returnGeometry=true&resultRecordCount=5'
+    }
+  ];
+  
+  for (const test of urlsToTry) {
+    const testResult = {
+      name: test.name,
+      url: test.url,
       status: null,
       success: false,
+      featureCount: null,
       error: null,
-      linkedOverflows: []
+      sampleData: null
     };
     
     try {
       const response = await fetch(test.url);
-      test.status = response.status;
+      testResult.status = response.status;
+      
       const data = await response.json();
       
       if (data.error) {
-        test.error = data.error.message;
+        testResult.error = data.error.message || JSON.stringify(data.error);
       } else if (data.features) {
-        test.success = true;
-        
-        const beachOverflows = data.features.filter(f => {
-          const linkedBeach = f.attributes.Linked_Bathing_Water;
-          if (!linkedBeach) return false;
-          
-          const beachLower = beach.name.toLowerCase().replace(/\s+/g, '');
-          const linkedLower = linkedBeach.toLowerCase().replace(/\s+/g, '');
-          
-          return beachLower.includes(linkedLower) || linkedLower.includes(beachLower);
-        });
-        
-        test.linkedOverflows = beachOverflows.map(f => ({
-          assetName: f.attributes.asset_name,
-          status: f.attributes.status,
-          linkedBeach: f.attributes.Linked_Bathing_Water,
-          startTime: f.attributes.start_date_time_discharge,
-          stopTime: f.attributes.stop_date_time_discharge
-        }));
-        
-        test.totalFeaturesReturned = data.features.length;
-        test.matchingOverflows = beachOverflows.length;
+        testResult.success = true;
+        testResult.featureCount = data.features.length;
+        if (data.features.length > 0) {
+          testResult.sampleData = {
+            attributeKeys: Object.keys(data.features[0].attributes || {}),
+            firstRecord: data.features[0].attributes
+          };
+        }
       }
     } catch (err) {
-      test.error = err.message;
+      testResult.error = err.message;
     }
     
-    result.tests.push(test);
+    result.tests.push(testResult);
   }
-  
-  const sewageResult = await fetchSewageStatus(beach);
-  result.currentImplementation = sewageResult;
   
   res.json(result);
 });
 
+// Debug endpoint for tides
 app.get('/debug-tides/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -1187,7 +1087,7 @@ app.get('/debug-tides/:beach', async (req, res) => {
   }
 });
 
-// Debug endpoint for marine data (sea temperature diagnosis)
+// Debug endpoint for marine data
 app.get('/debug-marine/:beach', async (req, res) => {
   const beach = BEACHES.find(b => b.slug === req.params.beach);
   if (!beach) return res.status(404).json({ error: 'Beach not found' });
@@ -1197,7 +1097,6 @@ app.get('/debug-marine/:beach', async (req, res) => {
   const dateStr = targetDate.toISOString().split('T')[0];
   const hour = targetDate.getHours();
   
-  // Get a 3-day range to see forecast data too
   const endDate = new Date(targetDate);
   endDate.setDate(endDate.getDate() + 2);
   const endDateStr = endDate.toISOString().split('T')[0];
@@ -1224,7 +1123,6 @@ app.get('/debug-marine/:beach', async (req, res) => {
     
     result.rawResponse = data;
     
-    // Check if we got SST data
     if (data.error) {
       result.diagnosis.push(`API Error: ${JSON.stringify(data.error)}`);
     } else if (!data.hourly) {
@@ -1236,7 +1134,6 @@ app.get('/debug-marine/:beach', async (req, res) => {
       if (!sst) {
         result.diagnosis.push('sea_surface_temperature field is missing from response');
       } else {
-        // Count non-null values
         const nonNullCount = sst.filter(v => v !== null).length;
         const totalCount = sst.length;
         
@@ -1246,7 +1143,6 @@ app.get('/debug-marine/:beach', async (req, res) => {
           result.diagnosis.push('ALL SST values are null - likely no coverage for this location');
         }
         
-        // Extract value for target hour
         const targetValue = sst[hour];
         result.extracted = {
           targetHour: hour,
@@ -1256,7 +1152,6 @@ app.get('/debug-marine/:beach', async (req, res) => {
           swellHeight: data.hourly.swell_wave_height?.[hour]
         };
         
-        // Show sample of data across the forecast period
         result.sampleData = [];
         for (let i = 0; i < Math.min(72, times?.length || 0); i += 6) {
           result.sampleData.push({
