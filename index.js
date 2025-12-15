@@ -1,10 +1,10 @@
 // ============================================
 // SHORECAST BACKEND - Complete index.js
 // ============================================
-// Last Updated: 15 December 2025
+// Last Updated: 12 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// FIXED: Removed duplicate rain logic in dipping mode recommendations
+// UPDATED: Enhanced weather integration throughout all recommendations
 
 const express = require('express');
 const cors = require('cors');
@@ -657,10 +657,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       parts.push(`**choppy conditions** at ${marine.waveHeight.toFixed(1)}m waves.`);
       parts.push(weatherState);
       
-      if (weather.precipitation > 0.5) {
-        parts.push('rain will make changing uncomfortable');
-      }
-      
       if (sunVisibility) {
         parts.push(sunVisibility);
       }
@@ -699,11 +695,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push('light breeze');
       } else if (weather.windSpeed < 30) {
         parts.push('moderate breeze - nothing to worry about');
-      }
-      
-      // Rain context
-      if (weather.precipitation > 0.5) {
-        parts.push('light rain forecast - part of the experience');
       }
       
       // Sewage status
