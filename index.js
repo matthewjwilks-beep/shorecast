@@ -1,10 +1,10 @@
 // ============================================
 // SHORECAST BACKEND - Complete index.js
 // ============================================
-// Last Updated: 12 December 2025
+// Last Updated: 15 December 2025
 // Deploy to: Render.com (free tier)
 // Environment Variables Required: ADMIRALTY_API_KEY
-// UPDATED: Enhanced weather integration throughout all recommendations
+// FIXED: Removed duplicate rain logic in dipping mode recommendations
 
 const express = require('express');
 const cors = require('cors');
@@ -746,10 +746,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       statusText = 'mild';
       parts.push(`**${Math.round(marine.seaTemp)}°C - too mild for cold therapy.** ${weatherState}.`);
       
-      if (weather.precipitation > 0.5) {
-        parts.push('rain will make changing less pleasant');
-      }
-      
       parts.push('better for a longer, gentler dip');
     } else if (marine.seaTemp <= 8) {
       status = 'green'; 
@@ -766,12 +762,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push('moderate breeze - find shelter');
       } else {
         parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one`);
-      }
-      
-      if (weather.precipitation > 1) {
-        parts.push('rain forecast - you\'ll feel every drop, but that\'s part of it');
-      } else if (weather.precipitation > 0.5) {
-        parts.push('light rain expected - adds to the atmosphere');
       }
       
       if (weather.feelsLike < 5) {
@@ -798,10 +788,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
         parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - breezy recovery`);
       }
       
-      if (weather.precipitation > 0.5) {
-        parts.push('rain expected - embrace it');
-      }
-      
       if (weather.feelsLike < 8) {
         parts.push(`feels like ${Math.round(weather.feelsLike)}°C - bring extra layers`);
       }
@@ -814,10 +800,6 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
       
       if (sunVisibility) {
         parts.push(sunVisibility);
-      }
-      
-      if (weather.precipitation > 1) {
-        parts.push('heavy rain forecast - changing will be soggy');
       }
       
       parts.push('still bracing, still good');
