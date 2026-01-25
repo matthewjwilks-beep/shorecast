@@ -728,7 +728,7 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
     
     if (weather.feelsLike < 0) {
       const weatherNote = weather.precipitation > 1 ? `${weatherState} adding to the challenge.` : weatherState;
-      return { status: 'red', statusText: 'dangerous', recommendation: `**severe hypothermia risk.** feels like ${Math.round(weather.feelsLike)}°C outside. ${weatherNote}. recovery will be brutal.` };
+      return { status: 'red', statusText: 'take care', recommendation: `**extreme cold - take extra precautions.** feels like ${Math.round(weather.feelsLike)}°C outside. ${weatherNote}. if you go: have a buddy, stay close to shore, 2-3 minutes max, warm vehicle running nearby, hot drink ready, multiple warm layers and woolly hat for after. know your limits.` };
     }
     
     // Temperature assessment (inverted logic - colder is better)
