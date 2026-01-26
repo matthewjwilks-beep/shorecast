@@ -722,78 +722,78 @@ function generateRecommendation(beach, conditions, mode, timeSlot) {
   } else if (mode === 'dipping') {
     // DIPPING MODE
     if (sewage.status === 'active' || sewage.status === 'recent') {
-      const weatherNote = weatherState;
-      return { status: 'red', statusText: 'wait', recommendation: `**sewage discharge recently.** ${weatherNote}. wait 48 hours for dipping.` };
+      const weatherNote = weatherState.charAt(0).toUpperCase() + weatherState.slice(1);
+      return { status: 'red', statusText: 'wait', recommendation: `Sewage discharge recently - best to wait 48 hours for dipping. ${weatherNote}.` };
     }
     
     if (weather.feelsLike < 0) {
-      const weatherNote = weather.precipitation > 1 ? `${weatherState} adding to the challenge.` : weatherState;
-      return { status: 'red', statusText: 'take care', recommendation: `**extreme cold - take extra precautions.** feels like ${Math.round(weather.feelsLike)}°C outside. ${weatherNote}. if you go: have a buddy, stay close to shore, 2-3 minutes max, warm vehicle running nearby, hot drink ready, multiple warm layers and woolly hat for after. know your limits.` };
+      const weatherNote = weather.precipitation > 1 ? `${weatherState.charAt(0).toUpperCase() + weatherState.slice(1)} adding to the challenge.` : weatherState.charAt(0).toUpperCase() + weatherState.slice(1);
+      return { status: 'red', statusText: 'take care', recommendation: `Extreme cold - take extra precautions with windchill at ${Math.round(weather.feelsLike)}°C outside. ${weatherNote}. If you go: bring a buddy, stay close to shore, 2-3 minutes max, have your warm vehicle running nearby with a hot drink ready. Multiple warm layers and a woolly hat are essential for recovery. Know your limits.` };
     }
     
     // Temperature assessment (inverted logic - colder is better)
     if (marine.seaTemp >= 13) {
       status = 'amber'; 
       statusText = 'mild';
-      parts.push(`**${Math.round(marine.seaTemp)}°C - too mild for cold therapy.** ${weatherState}.`);
+      parts.push(`Water's ${Math.round(marine.seaTemp)}°C - too mild for cold therapy. ${weatherState.charAt(0).toUpperCase() + weatherState.slice(1)}.`);
       
-      parts.push('better for a longer, gentler dip');
+      parts.push('This temperature is better suited for a longer, gentler dip rather than a quick cold plunge');
     } else if (marine.seaTemp <= 8) {
       status = 'green'; 
       statusText = 'perfect';
-      parts.push(`**pure winter magic.** water at ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      parts.push(`Pure winter magic! Water at ${Math.round(marine.seaTemp)}°C with ${weatherState}.`);
       
       if (sunVisibility) {
-        parts.push(sunVisibility);
+        parts.push(sunVisibility.charAt(0).toUpperCase() + sunVisibility.slice(1));
       }
       
       if (weather.windSpeed < 15) {
-        parts.push('still conditions for getting changed');
+        parts.push('Still conditions make getting changed easier');
       } else if (weather.windSpeed < 25) {
-        parts.push('moderate breeze - find shelter');
+        parts.push('Moderate breeze - find a sheltered spot for changing');
       } else {
-        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - you'll earn this one`);
+        parts.push(`Wind at ${Math.round(weather.windSpeed)}km/h - you'll definitely earn this one!`);
       }
       
       if (weather.feelsLike < 5) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C outside - warm layers essential for recovery. hot drink recommended`);
+        parts.push(`With windchill it'll feel like ${Math.round(weather.feelsLike)}°C, so warm layers are essential for recovery and a hot drink is highly recommended`);
       }
       
       if (sewage.status === 'clear') {
-        parts.push('water quality clear');
+        parts.push('Water quality is clear');
       }
       
-      parts.push('safe time: 3-5 minutes');
+      parts.push('Safe time: 3-5 minutes');
     } else if (marine.seaTemp <= 10) {
       status = 'green'; 
       statusText = 'excellent';
-      parts.push(`**crisp and clarifying.** ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      parts.push(`Crisp and clarifying at ${Math.round(marine.seaTemp)}°C. ${weatherState.charAt(0).toUpperCase() + weatherState.slice(1)}.`);
       
       if (sunVisibility) {
-        parts.push(sunVisibility);
+        parts.push(sunVisibility.charAt(0).toUpperCase() + sunVisibility.slice(1));
       }
       
       if (weather.windSpeed < 15) {
-        parts.push('calm conditions');
+        parts.push('Calm conditions for a peaceful dip');
       } else if (weather.windSpeed > 30) {
-        parts.push(`wind at ${Math.round(weather.windSpeed)}km/h - breezy recovery`);
+        parts.push(`Wind at ${Math.round(weather.windSpeed)}km/h means a breezy recovery - find shelter for changing`);
       }
       
       if (weather.feelsLike < 8) {
-        parts.push(`feels like ${Math.round(weather.feelsLike)}°C - bring extra layers`);
+        parts.push(`With windchill it'll feel like ${Math.round(weather.feelsLike)}°C, so bring extra layers for afterwards`);
       }
       
-      parts.push('safe time: 5-10 minutes depending on your experience');
+      parts.push('Safe time: 5-10 minutes depending on your experience');
     } else {
       status = 'amber'; 
       statusText = 'mild';
-      parts.push(`**gentle cold therapy.** ${Math.round(marine.seaTemp)}°C. ${weatherState}.`);
+      parts.push(`Gentle cold therapy at ${Math.round(marine.seaTemp)}°C. ${weatherState.charAt(0).toUpperCase() + weatherState.slice(1)}.`);
       
       if (sunVisibility) {
-        parts.push(sunVisibility);
+        parts.push(sunVisibility.charAt(0).toUpperCase() + sunVisibility.slice(1));
       }
       
-      parts.push('still bracing, still good');
+      parts.push('Still bracing enough to feel good!');
     }
   }
   
