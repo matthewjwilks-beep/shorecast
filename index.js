@@ -566,6 +566,161 @@ async function fetchSewageStatus(beach) {
     return { status: 'unknown', icon: '?', source: beach.companyName };
   }
 }
+// ============================================================================
+// BATHING WATER QUALITY (Environment Agency + Natural Resources Wales)
+// ----------------------------------------------------------------------------
+// Add this block to index.js (near your other fetch functions, e.g. below
+// fetchSewageStatus). It fetches the full list of designated bathing waters
+// once, caches it, and matches each beach to the nearest monitoring site by
+// coordinates. Returns the annual classification (badge) + today's pollution
+// risk (freshness note).
+//
+// Data: © Environment Agency / Natural Resources Wales, Open Government Licence.
+// ============================================================================
+
+// The two list endpoints. Both share the same JSON shape.
+const BW_ENDPOINTS = [
+  'https://environment.data.gov.uk/doc/bathing-water.json?_view=basic&_pageSize=1000',
+  'https://environment.data.gov.uk/wales/bathing-waters/doc/bathing-water.json?_view=basic&_pageSize=1000',
+];
+
+// How near a monitoring site must be (km) to count as "this beach's" bathing water.
+const BW_MATCH_KM = 3.0;
+
+// Cache the whole site list separately from your per-request cache, because it
+// changes at most twice a year. Refresh once a day.
+let _bwSites = null;
+let _bwFetchedAt = 0;
+const BW_LIST_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+// Pull a plain string out of the EA's { "_value": "..." } wrappers.
+function bwText(node) {
+  if (node == null) return null;
+  if (typeof node === 'string') return node;
+  if (typeof node._value === 'string') return node._value;
+  if (Array.isArray(node) && node[0]) return bwText(node[0]);
+  return null;
+}
+
+// Turn one raw API item into { id, name, lat, lon, classification, riskLevel }.
+function bwNormalise(item) {
+  const sp = item.samplingPoint || {};
+  const lat = typeof sp.lat === 'number' ? sp.lat : parseFloat(sp.lat);
+  const lon = typeof sp.long === 'number' ? sp.long : parseFloat(sp.long);
+  if (lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)) return null;
+
+  // Annual classification: latestComplianceAssessment.complianceClassification.name
+  let classification = null;
+  const ca = item.latestComplianceAssessment;
+  if (ca && ca.complianceClassification) {
+    classification = bwText(ca.complianceClassification.name);
+  }
+
+  // Today's pollution risk: latestRiskPrediction.riskLevel.name (e.g. "normal")
+  let riskLevel = null;
+  const rp = item.latestRiskPrediction;
+  if (rp && rp.riskLevel) {
+    riskLevel = bwText(rp.riskLevel.name);
+  }
+
+  return {
+    id: item.eubwidNotation || null,
+    name: bwText(item.name) || 'bathing water',
+    lat, lon,
+    classification,               // "Excellent" | "Good" | "Sufficient" | "Poor" | null
+    riskLevel,                    // "normal" | (elevated variants) | null
+  };
+}
+
+// Fetch + cache the combined England/Wales site list.
+async function getBathingWaterSites() {
+  const now = Date.now();
+  if (_bwSites && (now - _bwFetchedAt) < BW_LIST_TTL) return _bwSites;
+
+  const collected = [];
+  for (const url of BW_ENDPOINTS) {
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) { console.warn('Bathing water list fetch failed:', url, res.status); continue; }
+      const json = await res.json();
+      const items = (json && json.result && json.result.items) || [];
+      for (const it of items) {
+        const site = bwNormalise(it);
+        if (site) collected.push(site);
+      }
+    } catch (err) {
+      console.warn('Bathing water list error:', url, err.message);
+    }
+  }
+
+  if (collected.length > 0) {
+    _bwSites = collected;
+    _bwFetchedAt = now;
+  }
+  // If both fetches failed, keep any stale cache we had rather than returning nothing.
+  return _bwSites || [];
+}
+
+// Reuse the same great-circle distance we validated (Abereiddy matched at 0.3km).
+function bwHaversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Map an EA classification to the value strings your frontend badge already uses.
+function bwToBadgeValue(classification) {
+  if (!classification) return null;
+  switch (classification.toLowerCase()) {
+    case 'excellent':  return 'excellent';
+    case 'good':       return 'good';
+    case 'sufficient': return 'sufficient';
+    case 'poor':       return 'poor';
+    default:           return null;
+  }
+}
+
+/**
+ * Main entry point. Given a beach ({ lat, lon, ... }), returns:
+ *   {
+ *     bathingWaterQuality: 'excellent'|'good'|'sufficient'|'poor'|null, // annual badge
+ *     riskToday: 'normal'|string|null,   // today's pollution risk forecast
+ *     siteName: string|null,             // matched EA/NRW site name
+ *     distanceKm: number|null            // how far the site is from the beach
+ *   }
+ * If no designated bathing water is within BW_MATCH_KM, all fields are null
+ * (correct: not every beach is a designated bathing water).
+ */
+async function fetchBathingWaterQuality(beach) {
+  try {
+    const sites = await getBathingWaterSites();
+    if (!sites.length) return { bathingWaterQuality: null, riskToday: null, siteName: null, distanceKm: null };
+
+    let best = null, bestKm = Infinity;
+    for (const s of sites) {
+      const km = bwHaversineKm(beach.lat, beach.lon, s.lat, s.lon);
+      if (km < bestKm) { bestKm = km; best = s; }
+    }
+
+    if (!best || bestKm > BW_MATCH_KM) {
+      return { bathingWaterQuality: null, riskToday: null, siteName: null, distanceKm: null };
+    }
+
+    return {
+      bathingWaterQuality: bwToBadgeValue(best.classification),
+      riskToday: best.riskLevel || null,
+      siteName: best.name,
+      distanceKm: +bestKm.toFixed(2),
+    };
+  } catch (err) {
+    console.warn('fetchBathingWaterQuality failed:', err.message);
+    return { bathingWaterQuality: null, riskToday: null, siteName: null, distanceKm: null };
+  }
+}
 
 // ============================================
 // RECOMMENDATION ENGINE - ENHANCED WEATHER
