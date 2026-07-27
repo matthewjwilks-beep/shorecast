@@ -578,8 +578,8 @@ async function fetchSewageStatus(beach) {
 // ============================================================================
 
 const BW_ENDPOINTS = [
-  'https://environment.data.gov.uk/doc/bathing-water.json?_view=basic&_pageSize=1000',
-  'https://environment.data.gov.uk/wales/bathing-waters/doc/bathing-water.json?_view=basic&_pageSize=1000',
+  'https://environment.data.gov.uk/doc/bathing-water.json?_pageSize=1000',
+  'https://environment.data.gov.uk/wales/bathing-waters/doc/bathing-water.json?_pageSize=1000',
 ];
 
 const BW_MATCH_KM = 3.0;
