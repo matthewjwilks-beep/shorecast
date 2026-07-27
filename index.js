@@ -1305,34 +1305,35 @@ app.get('/cache/stats', (req, res) => {
  
 // TEMP debug endpoint for bathing water — safe to remove once feature confirmed working
 app.get('/debug-bw', async (req, res) => {
-  const diag = { attempts: [] };
-  for (const url of BW_ENDPOINTS) {
-    const a = { url };
+  const base = 'https://environment.data.gov.uk/doc/bathing-water.json';
+  const browserHeaders = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    'Accept-Language': 'en-GB,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br'
+  };
+  const variants = [
+    { label: 'pageSize=5, no headers', url: `${base}?_pageSize=5`, headers: {} },
+    { label: 'pageSize=5, browser headers', url: `${base}?_pageSize=5`, headers: browserHeaders },
+    { label: 'pageSize=1000, browser headers', url: `${base}?_pageSize=1000`, headers: browserHeaders },
+    { label: 'pageSize=5, Accept json only', url: `${base}?_pageSize=5`, headers: { 'Accept': 'application/json' } },
+  ];
+  const out = [];
+  for (const v of variants) {
+    const a = { label: v.label };
     try {
-      const r = await fetch(url, { headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; ShorecastBot/1.0; +https://shorecast.co.uk)'
-      } });
+      const r = await fetch(v.url, { headers: v.headers });
       a.status = r.status;
       a.contentType = r.headers.get('content-type');
       const text = await r.text();
-      a.bodyLength = text.length;
-      a.bodyStart = text.slice(0, 200);
       try {
         const json = JSON.parse(text);
-        a.topLevelKeys = Object.keys(json);
-        a.hasResult = !!json.result;
-        a.hasResultItems = !!(json.result && json.result.items);
         a.itemCount = json.result && json.result.items ? json.result.items.length : 0;
-      } catch (pe) {
-        a.jsonParseError = pe.message;
-      }
-    } catch (err) {
-      a.fetchError = err.message;
-    }
-    diag.attempts.push(a);
+      } catch { a.bodyStart = text.slice(0, 80); }
+    } catch (err) { a.fetchError = err.message; }
+    out.push(a);
   }
-  res.json(diag);
+  res.json(out);
 });
 
 app.post('/cache/clear', (req, res) => {
