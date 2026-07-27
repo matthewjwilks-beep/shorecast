@@ -1300,6 +1300,24 @@ app.get('/cache/stats', (req, res) => {
   res.json(stats);
 });
  
+// TEMP debug endpoint for bathing water — safe to remove once feature confirmed working
+app.get('/debug-bw', async (req, res) => {
+  try {
+    const sites = await getBathingWaterSites();
+    const sample = sites.slice(0, 3).map(s => ({ name: s.name, lat: s.lat, lon: s.lon, classification: s.classification, riskLevel: s.riskLevel }));
+    const barry = BEACHES.find(b => b.slug === 'barry-island');
+    const result = await fetchBathingWaterQuality(barry);
+    res.json({
+      totalSitesLoaded: sites.length,
+      firstThreeSites: sample,
+      barryIslandBeachCoords: { lat: barry.lat, lon: barry.lon },
+      barryIslandResult: result
+    });
+  } catch (err) {
+    res.json({ error: err.message, stack: err.stack });
+  }
+});
+
 app.post('/cache/clear', (req, res) => {
   const size = cache.size;
   cache.clear();
