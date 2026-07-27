@@ -1302,20 +1302,31 @@ app.get('/cache/stats', (req, res) => {
  
 // TEMP debug endpoint for bathing water — safe to remove once feature confirmed working
 app.get('/debug-bw', async (req, res) => {
-  try {
-    const sites = await getBathingWaterSites();
-    const sample = sites.slice(0, 3).map(s => ({ name: s.name, lat: s.lat, lon: s.lon, classification: s.classification, riskLevel: s.riskLevel }));
-    const barry = BEACHES.find(b => b.slug === 'barry-island');
-    const result = await fetchBathingWaterQuality(barry);
-    res.json({
-      totalSitesLoaded: sites.length,
-      firstThreeSites: sample,
-      barryIslandBeachCoords: { lat: barry.lat, lon: barry.lon },
-      barryIslandResult: result
-    });
-  } catch (err) {
-    res.json({ error: err.message, stack: err.stack });
+  const diag = { attempts: [] };
+  for (const url of BW_ENDPOINTS) {
+    const a = { url };
+    try {
+      const r = await fetch(url, { headers: { Accept: 'application/json' } });
+      a.status = r.status;
+      a.contentType = r.headers.get('content-type');
+      const text = await r.text();
+      a.bodyLength = text.length;
+      a.bodyStart = text.slice(0, 200);
+      try {
+        const json = JSON.parse(text);
+        a.topLevelKeys = Object.keys(json);
+        a.hasResult = !!json.result;
+        a.hasResultItems = !!(json.result && json.result.items);
+        a.itemCount = json.result && json.result.items ? json.result.items.length : 0;
+      } catch (pe) {
+        a.jsonParseError = pe.message;
+      }
+    } catch (err) {
+      a.fetchError = err.message;
+    }
+    diag.attempts.push(a);
   }
+  res.json(diag);
 });
 
 app.post('/cache/clear', (req, res) => {
