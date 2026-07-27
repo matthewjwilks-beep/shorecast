@@ -630,7 +630,10 @@ async function getBathingWaterSites() {
   const collected = [];
   for (const url of BW_ENDPOINTS) {
     try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      const res = await fetch(url, { headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; ShorecastBot/1.0; +https://shorecast.co.uk)'
+      } });
       if (!res.ok) { console.warn('Bathing water list fetch failed:', url, res.status); continue; }
       const json = await res.json();
       const items = (json && json.result && json.result.items) || [];
@@ -1306,7 +1309,10 @@ app.get('/debug-bw', async (req, res) => {
   for (const url of BW_ENDPOINTS) {
     const a = { url };
     try {
-      const r = await fetch(url, { headers: { Accept: 'application/json' } });
+      const r = await fetch(url, { headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; ShorecastBot/1.0; +https://shorecast.co.uk)'
+      } });
       a.status = r.status;
       a.contentType = r.headers.get('content-type');
       const text = await r.text();
